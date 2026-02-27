@@ -1,3 +1,5 @@
+package ru.itmo.marimiari.validation;
+
 import ru.itmo.marimiari.domain.Slot;
 import ru.itmo.marimiari.exception.ValidationException;
 
