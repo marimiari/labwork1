@@ -32,3 +32,4 @@ public class PlacePutCommand extends Command {
         System.out.println("OK sample " + sampleId + " placed in " + slotCode + " placement_id=" + placement.getId());
     }
 }
+

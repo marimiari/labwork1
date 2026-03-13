@@ -28,3 +28,4 @@ public class PlaceRemoveCommand extends Command {
         System.out.println("OK sample " + sampleId + " removed from the storage");
     }
 }
+

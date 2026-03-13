@@ -32,3 +32,4 @@ public class PlaceMoveCommand extends Command {
         System.out.println("OK sample moved in " + slotCode + " new placement_id=" + placement.getId());
     }
 }
+

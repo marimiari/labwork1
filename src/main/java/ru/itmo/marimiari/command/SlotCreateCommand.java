@@ -62,3 +62,4 @@ public class SlotCreateCommand extends Command {
         System.out.println("OK created " + created.size() + " slots");
     }
 }
+
