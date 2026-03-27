@@ -33,6 +33,8 @@ public class Main {
         interpreter.register(new PlaceRemoveCommand());
         interpreter.register(new PlaceFindCommand());
         interpreter.register(new ContMapCommand());
+        interpreter.register(new LoadCommand());
+        interpreter.register(new SaveCommand());
 
         interpreter.run();
     }
