@@ -3,9 +3,7 @@ package ru.itmo.marimiari.command;
 import ru.itmo.marimiari.interpreter.Command;
 import ru.itmo.marimiari.interpreter.CommandException;
 import ru.itmo.marimiari.interpreter.Environment;
-import ru.itmo.marimiari.storage.FileValidator;
-import ru.itmo.marimiari.storage.StorageData;
-import ru.itmo.marimiari.storage.StorageException;
+import ru.itmo.marimiari.storage.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,6 +24,7 @@ public class LoadCommand extends Command {
     public void execute(Environment env, String[] args) throws CommandException{
         Path path = Paths.get(args[0]);
         try {
+            StorageData data = XmlStorage.load(path);
             FileValidator.validate(data);
 
             env.getSampleService().clear();
