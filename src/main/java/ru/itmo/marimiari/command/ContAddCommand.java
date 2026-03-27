@@ -26,20 +26,36 @@ public class ContAddCommand extends Command {
 
     @Override
     public void additionalInput(Environment env, Scanner scanner) throws CommandException {
-        System.out.print("Name: ");
-        name = scanner.nextLine().trim();
-        if (name.isEmpty()) throw new CommandException("Name cannot be empty");
-
-        System.out.print("Type (FREEZER/FRIDGE/BOX): ");
-        String typeStr = scanner.nextLine().trim().toUpperCase();
-        try {
-            type = ContainerType.valueOf(typeStr);
-        } catch (IllegalArgumentException e) {
-            throw new CommandException("Invalid type. Must be FREEZER, FRIDGE or BOX");
+        while (true) {
+            System.out.print("Name: ");
+            String input = scanner.nextLine().trim();
+            if (!input.isEmpty()) {
+                name = input;
+                break;
+            }
+            System.out.println("Name cannot be empty. Try again.");
         }
-        System.out.print("Owner: ");
-        owner = scanner.nextLine().trim();
-        if (owner.isEmpty()) throw new CommandException("Owner cannot be empty");
+
+        while (true) {
+            System.out.print("Type (FREEZER/FRIDGE/BOX): ");
+            String typeStr = scanner.nextLine().trim().toUpperCase();
+            try {
+                type = ContainerType.valueOf(typeStr);
+                break;
+            } catch (IllegalArgumentException e) {
+                System.out.println("Invalid type. Must be FREEZER, FRIDGE or BOX. Try again.");
+            }
+        }
+
+        while (true) {
+            System.out.print("Owner: ");
+            String input = scanner.nextLine().trim();
+            if (!input.isEmpty()) {
+                owner = input;
+                break;
+            }
+            System.out.println("Owner cannot be empty. Try again.");
+        }
     }
 
     @Override

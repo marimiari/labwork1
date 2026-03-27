@@ -22,37 +22,54 @@ public class SlotCreateCommand extends Command {
         if (args.length != 1) {
             throw new CommandException("Use: slot_create <container_id>");
         }
-        try {
-            containerId = Long.parseLong(args[0]);
-        } catch (NumberFormatException e) {
-            throw new CommandException("Invalid container_id: " + args[0]);
-        }
     }
 
     @Override
     public void additionalInput(Environment env, Scanner scanner) throws CommandException {
-        if (!env.getContainerService().exists(containerId)) {
-            throw new CommandException("Container not found");
+        while (true) {
+            System.out.print("Container id: ");
+            String input = scanner.nextLine().trim();
+            try {
+                long id = Long.parseLong(input);
+                if (env.getContainerService().exists(id)) {
+                    containerId = id;
+                    break;
+                } else {
+                    System.out.println("Container not found. Try again.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid container id. Try again.");
+            }
         }
 
-        System.out.print("Rows (A..): ");
-        try {
-            rows = Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            throw new CommandException("Incorrect number of rows");
-        }
-        if (rows <= 0 || rows > 26) {
-            throw new CommandException("The number of rows must be from 1 to 26");
+        while (true) {
+            System.out.print("Rows (A.., max 26): ");
+            String input = scanner.nextLine().trim();
+            try {
+                rows = Integer.parseInt(input);
+                if (rows > 0 && rows <= 26) {
+                    break;
+                } else {
+                    System.out.println("The number of rows must be from 1 to 26. Try again.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number. Try again.");
+            }
         }
 
-        System.out.print("Columns (1..): ");
-        try {
-            cols = Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            throw new CommandException("Incorrect number of columns");
-        }
-        if (cols <= 0) {
-            throw new CommandException("The number of columns must be positive");
+        while (true) {
+            System.out.print("Columns (1..): ");
+            String input = scanner.nextLine().trim();
+            try {
+                cols = Integer.parseInt(input);
+                if (cols > 0) {
+                    break;
+                } else {
+                    System.out.println("The number of columns must be positive. Try again.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number. Try again.");
+            }
         }
     }
 
