@@ -1,14 +1,23 @@
 package ru.itmo.marimiari.domain;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
 
+@XmlAccessorType(XmlAccessType.FIELD)
 public final class Container {
     private long id;
     private String name;
     private ContainerType type;
     private String ownerUsername;
-    private final Instant createdAt;
+    @XmlJavaTypeAdapter(InstantAdapter.class)
+    private Instant createdAt;
+    @XmlJavaTypeAdapter(InstantAdapter.class)
     private Instant updatedAt;
+
+    public Container() {}
 
     public Container(long id, String name, ContainerType type, String ownerUsername) {
         this.id = id;

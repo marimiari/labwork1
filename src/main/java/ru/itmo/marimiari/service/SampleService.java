@@ -33,4 +33,18 @@ public class SampleService {
         }
         samples.remove(id);
     }
+
+    public void clear() {
+        samples.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Sample> collection) {
+        for (Sample s : collection) {
+            samples.put(s.getId(), s);
+            if (s.getId() >= nextId) {
+                nextId = s.getId() + 1;
+            }
+        }
+    }
 }

@@ -85,4 +85,16 @@ public class PlacementService {
         return placements.values().stream().filter(p -> p.getSampleId() == sampleId).findFirst();
     }
 
+    public void clear() {
+        placements.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Placement> collection) {
+        for (Placement p : collection) {
+            placements.put(p.getId(), p);
+            if (p.getId() >= nextId) nextId = p.getId() + 1;
+        }
+    }
+
 }

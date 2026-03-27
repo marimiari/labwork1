@@ -99,4 +99,16 @@ public class SlotService {
         Slot slot = slots.get(slotId);
         return slot != null && slot.isOccupied();
     }
+
+    public void clear() {
+        slots.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Slot> collection) {
+        for (Slot s : collection) {
+            slots.put(s.getId(), s);
+            if (s.getId() >= nextId) nextId = s.getId() + 1;
+        }
+    }
 }

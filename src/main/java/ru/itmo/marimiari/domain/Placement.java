@@ -1,14 +1,22 @@
 package ru.itmo.marimiari.domain;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
 
+@XmlAccessorType(XmlAccessType.FIELD)
 public final class Placement {
-    private final long id;
-    private final long sampleId;
-    private final long containerId;
-    private final long slotId;
-    private final Instant placedAt;
-    private final String ownerUsername;
+    private long id;
+    private long sampleId;
+    private long containerId;
+    private long slotId;
+    @XmlJavaTypeAdapter(InstantAdapter.class)
+    private Instant placedAt;
+    private String ownerUsername;
+
+    public Placement() {}
 
     public Placement(long id, long sampleId, long containerId, long slotId, String ownerUsername) {
         this.id = id;

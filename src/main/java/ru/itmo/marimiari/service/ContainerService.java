@@ -45,4 +45,18 @@ public class ContainerService {
         }
         containers.remove(id);
     }
+
+    public void clear() {
+        containers.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Container> collection) {
+        for (Container c : collection) {
+            containers.put(c.getId(), c);
+            if (c.getId() >= nextId) {
+                nextId = c.getId() + 1;
+            }
+        }
+    }
 }

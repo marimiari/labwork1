@@ -1,13 +1,21 @@
 package ru.itmo.marimiari.domain;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
 
+@XmlAccessorType(XmlAccessType.FIELD)
 public final class Slot {
     private long id;
     private long containerId;
     private String code;
     private boolean occupied;
+    @XmlJavaTypeAdapter(InstantAdapter.class)
     private Instant createdAt;
+
+    public Slot(){}
 
     public Slot(long id, long containerId, String code, boolean occupied, Instant createdAt) {
         this.id = id;
