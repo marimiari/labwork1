@@ -11,7 +11,7 @@ public class PlacementService {
     private final ContainerService containerService;
     private final SlotService slotService;
 
-    public PlacementService(SampleService sampleService, ContainerService containerService, SlotService slotService){ //конструктор
+    public PlacementService(SampleService sampleService, ContainerService containerService, SlotService slotService) { //конструктор
         this.sampleService = sampleService;
         this.containerService = containerService;
         this.slotService = slotService;
@@ -52,7 +52,7 @@ public class PlacementService {
 
     public void update(long id) {
         Placement placement = placements.get(id);
-        if (placement == null){
+        if (placement == null) {
             throw new IllegalArgumentException("Placement not found");
         }
         PlacementValidator.validate(placement); //проверяет вновь поля, они не менялись
@@ -67,7 +67,7 @@ public class PlacementService {
         placements.remove(id);
     }
 
-    public Placement move(long sampleId, long newContainerId, String newSlotCode, String owner){
+    public Placement move(long sampleId, long newContainerId, String newSlotCode, String owner) {
         //переместить уже размещенный образец в другой контейнер/ячейку
         Placement old = findBySample(sampleId) //находим объект или кидает исключение
                 .orElseThrow(() -> new IllegalArgumentException("Sample not placed"));
@@ -85,4 +85,15 @@ public class PlacementService {
         return placements.values().stream().filter(p -> p.getSampleId() == sampleId).findFirst();
     }
 
+    public void clear(){
+        placements.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Placement> collection){
+        for (Placement p : collection){
+            placements.put(p.getId(), p);
+            if (p.getId() >= nextId) nextId = p.getId() + 1;
+        }
+    }
 }

@@ -10,26 +10,26 @@ public class ContainerService {
     private final Map<Long, Container> containers = new LinkedHashMap<>(); //сохраняет порядок добавления (ссылка не меняется из-за final)
     private long nextId = 1; //счетчик для генерации уникальных айди
 
-    public Container add(String name, ContainerType type, String owner){ //создаёт новый контейнер и добавляет его в хранилище
+    public Container add(String name, ContainerType type, String owner) { //создаёт новый контейнер и добавляет его в хранилище
         Container container = new Container(nextId++, name, type, owner);
         ContainerValidator.validate(container); //проверка корректности полей
         containers.put(container.getId(), container); //сохраняет в мап
         return container;
     }
 
-    public Optional<Container> get(long id){ //получить контейнер по айди
+    public Optional<Container> get(long id) { //получить контейнер по айди
         return Optional.ofNullable(containers.get(id));
     }
 
-    public Collection<Container> getAll(){ //возврат всей коллекции значений
+    public Collection<Container> getAll() { //возврат всей коллекции значений
         return Collections.unmodifiableCollection(containers.values()); //тут любая попытка изменить-исключение
     }
 
-    public boolean exists(long id){ //проверяет существование контейнера с таким айди
+    public boolean exists(long id) { //проверяет существование контейнера с таким айди
         return containers.containsKey(id);
     }
 
-    public void update(long id, String name, ContainerType type){ //обновление полей
+    public void update(long id, String name, ContainerType type) { //обновление полей
         Container container = containers.get(id);
         if (container == null)
             throw new IllegalArgumentException("Container not found");
@@ -39,10 +39,22 @@ public class ContainerService {
         ContainerValidator.validate(container); //повторная валидация
     }
 
-    public void remove(long id){ //удалить по айди
-        if (!exists(id)){
+    public void remove(long id) { //удалить по айди
+        if (!exists(id)) {
             throw new IllegalArgumentException("Container not found");
         }
         containers.remove(id);
+    }
+
+    public void clear() {
+        containers.clear();
+        nextId = 1;
+    }
+
+    public void addAll(Collection<Container> collection){
+        for (Container c : collection){
+            containers.put(c.getId(), c);
+            if (c.getId() >= nextId) nextId = c.getId() + 1;
+        }
     }
 }
