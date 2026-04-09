@@ -9,25 +9,25 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class LoadCommand extends Command {
-    public LoadCommand(){
-        super("load","load data from XML file: load <path>",false);
+    public LoadCommand() {
+        super("load", "load data from XML file: load <path>", false);
     }
 
     @Override
-    public void checkArgs(String[] args) throws CommandException{
-        if (args.length != 1){
+    public void checkArgs(String[] args) throws CommandException {
+        if (args.length != 1) {
             throw new CommandException("Usage: load <path>");
         }
     }
 
     @Override
-    public void execute(Environment env, String[] args) throws CommandException{
+    public void execute(Environment env, String[] args) throws CommandException {
         Path path = Paths.get(args[0]);
         try {
-            StorageData data = XmlStorage.load(path);
+            StorageData data = XmlStorage.load(path); //читает XML-файл по указанному пути и создаёт объект StorageData, в котором лежат списки
             FileValidator.validate(data);
 
-            env.getSampleService().clear();
+            env.getSampleService().clear(); //удаляет и добавляет все объекты (перезапись)
             env.getSampleService().addAll(data.getSamples());
             env.getContainerService().clear();
             env.getContainerService().addAll(data.getContainers());
@@ -39,5 +39,5 @@ public class LoadCommand extends Command {
         } catch (StorageException e) {
             throw new CommandException("Loading error " + e.getMessage());
         }
-        }
     }
+}

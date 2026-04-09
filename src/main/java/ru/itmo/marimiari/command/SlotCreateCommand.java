@@ -4,7 +4,10 @@ import ru.itmo.marimiari.domain.Slot;
 import ru.itmo.marimiari.interpreter.Command;
 import ru.itmo.marimiari.interpreter.CommandException;
 import ru.itmo.marimiari.interpreter.Environment;
+import ru.itmo.marimiari.storage.StorageException;
+import ru.itmo.marimiari.storage.XmlStorage;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Scanner;
 
@@ -77,6 +80,15 @@ public class SlotCreateCommand extends Command {
     public void execute(Environment env, String[] args) throws CommandException {
         List<Slot> created = env.getSlotService().createSlots(containerId, rows, cols);
         System.out.println("OK created " + created.size() + " slots");
+        try {
+            XmlStorage.save(Paths.get("data.xml"),
+                    env.getSampleService(),
+                    env.getContainerService(),
+                    env.getSlotService(),
+                    env.getPlacementService());
+        } catch (StorageException e) {
+            System.out.println("Warning: auto-save failed - " + e.getMessage());
+        }
     }
 }
 

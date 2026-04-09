@@ -64,4 +64,9 @@ public final class Slot {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    @Override
+    public String toString(){
+        return code;
+    }
 }

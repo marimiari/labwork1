@@ -78,7 +78,8 @@ public class PlacementService {
 
     public void removeBySample(long sampleId) { //удалить по айди образца
         Placement placement = findBySample(sampleId).orElseThrow(() -> new IllegalArgumentException("Sample not placed"));
-        remove(placement.getId());
+        slotService.setOccupied(placement.getSlotId(), false);
+        placements.remove(placement.getId());
     }
 
     public Optional<Placement> findBySample(long sampleId) { //найти по айди образца

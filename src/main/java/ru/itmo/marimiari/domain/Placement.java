@@ -50,4 +50,9 @@ public final class Placement {
     public String getOwnerUsername() {
         return ownerUsername;
     }
+
+    @Override
+    public String toString(){
+        return "Sample " + sampleId;
+    }
 }

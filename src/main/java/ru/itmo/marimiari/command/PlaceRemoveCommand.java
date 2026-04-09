@@ -3,6 +3,10 @@ package ru.itmo.marimiari.command;
 import ru.itmo.marimiari.interpreter.Command;
 import ru.itmo.marimiari.interpreter.CommandException;
 import ru.itmo.marimiari.interpreter.Environment;
+import ru.itmo.marimiari.storage.StorageException;
+import ru.itmo.marimiari.storage.XmlStorage;
+
+import java.nio.file.Paths;
 
 public class PlaceRemoveCommand extends Command {
     public PlaceRemoveCommand() {
@@ -26,6 +30,15 @@ public class PlaceRemoveCommand extends Command {
         long sampleId = Long.parseLong(args[0]);
         env.getPlacementService().removeBySample(sampleId);
         System.out.println("OK sample " + sampleId + " removed from the storage");
+        try {
+            XmlStorage.save(Paths.get("data.xml"),
+                    env.getSampleService(),
+                    env.getContainerService(),
+                    env.getSlotService(),
+                    env.getPlacementService());
+        } catch (StorageException e) {
+            System.out.println("Warning: auto-save failed - " + e.getMessage());
+        }
     }
 }
 
