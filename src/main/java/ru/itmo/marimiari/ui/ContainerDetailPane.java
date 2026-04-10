@@ -87,7 +87,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
                 new Label("Container details:"), grid,
                 new Label("Slots:"), slotTable,
                 new Label("Placements:"), placementTable,
-                    buttonsBox); //добавляет все элементы в главное место с информацией
+                buttonsBox); //добавляет все элементы в главное место с информацией
         this.setSpacing(10);
         this.setPadding(new javafx.geometry.Insets(10)); //отступы + от края
         setContainer(null); //если нет контейнера изначально, чистит поля
