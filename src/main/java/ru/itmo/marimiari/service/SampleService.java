@@ -8,10 +8,10 @@ public class SampleService {
     private final Map<Long, Sample> samples = new LinkedHashMap<>(); //сохраняет порядок добавления (ссылка не меняется из-за final)
     private long nextId = 1; //счетчик для генерации уникальных айди
 
-    public Sample add() { //создаем и добавляем в хранилище
-        Sample sample = new Sample(nextId++);
-        SampleValidator.validate(sample); //проверка полей
-        samples.put(sample.getId(), sample); //кладем в мап
+    public Sample add(String owner) { //создаем и добавляем в хранилище
+        Sample sample = new Sample(nextId++, owner);
+        SampleValidator.validate(sample);
+        samples.put(sample.getId(), sample);
         return sample;
     }
 

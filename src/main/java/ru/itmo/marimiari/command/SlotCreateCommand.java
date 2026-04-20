@@ -78,7 +78,7 @@ public class SlotCreateCommand extends Command {
 
     @Override
     public void execute(Environment env, String[] args) throws CommandException {
-        List<Slot> created = env.getSlotService().createSlots(containerId, rows, cols);
+        List<Slot> created = env.getSlotService().createSlots(containerId, rows, cols, "SYSTEM");
         System.out.println("OK created " + created.size() + " slots");
         try {
             XmlStorage.save(Paths.get("data.xml"),

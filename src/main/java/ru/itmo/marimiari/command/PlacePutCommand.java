@@ -32,7 +32,7 @@ public class PlacePutCommand extends Command {
         long sampleId = Long.parseLong(args[0]);
         long containerId = Long.parseLong(args[1]);
         String slotCode = args[2];
-        Placement placement = env.getPlacementService().add(sampleId, containerId, slotCode, "me");
+        Placement placement = env.getPlacementService().add(sampleId, containerId, slotCode, "SYSTEM");
         System.out.println("OK sample " + sampleId + " placed in " + slotCode + " placement_id=" + placement.getId());
         try {
             XmlStorage.save(Paths.get("data.xml"),

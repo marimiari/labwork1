@@ -15,14 +15,14 @@ public class SlotService {
         this.containerService = containerService;
     }
 
-    public Slot add(long containerId, String code) { //добавляем слот с валидацией
+    public Slot add(long containerId, String code, String owner) { //добавляем слот с валидацией
         if (!containerService.exists(containerId)) {
             throw new IllegalArgumentException("Container not found");
         }
         if (findByCode(containerId, code).isPresent()) { //проверяем нет ли уже слота с таким кодом
             throw new IllegalArgumentException("Slot with code " + code + " already exists in this container");
         }
-        Slot slot = new Slot(nextId++, containerId, code, false, Instant.now());
+        Slot slot = new Slot(nextId++, containerId, code, false, Instant.now(), owner);
         SlotValidator.validate(slot);
         slots.put(slot.getId(), slot);
         return slot;
@@ -60,17 +60,17 @@ public class SlotService {
         slots.remove(id);
     }
 
-    public List<Slot> createSlots(long containerId, int rows, int cols) { //создание сетки ячеек для указанного контейнера
-        if (!containerService.exists(containerId)) {
+    public List<Slot> createSlots(long containerId, int rows, int cols, String owner) { //создание сетки ячеек для указанного контейнера
+        if (!containerService.exists(containerId))
             throw new IllegalArgumentException("Container not found");
-        }
 
         List<Slot> created = new ArrayList<>();
         for (int r = 0; r < rows; r++) {
-            char rowChar = (char) ('A' + r);
             for (int c = 1; c <= cols; c++) {
-                String code = "" + rowChar + c; //задаем имена ячеек в контейнере, буква(ряд) + число(колонка)
-                Slot slot = add(containerId, code); //сохраняет слот
+                String code = "" + (char)('A' + r) + c;
+                Slot slot = new Slot(nextId++, containerId, code, false, Instant.now(), owner);
+                SlotValidator.validate(slot);
+                slots.put(slot.getId(), slot);
                 created.add(slot);
             }
         }

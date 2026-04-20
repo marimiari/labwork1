@@ -71,13 +71,18 @@ public class PlacementService {
         //переместить уже размещенный образец в другой контейнер/ячейку
         Placement old = findBySample(sampleId) //находим объект или кидает исключение
                 .orElseThrow(() -> new IllegalArgumentException("Sample not placed"));
+        if (!old.getOwnerUsername().equals(owner))
+            throw new IllegalArgumentException("You are not the owner");
         slotService.setOccupied(old.getSlotId(), false);
         placements.remove(old.getId());
         return add(sampleId, newContainerId, newSlotCode, owner); //убирает и помещает другой
     }
 
-    public void removeBySample(long sampleId) { //удалить по айди образца
-        Placement placement = findBySample(sampleId).orElseThrow(() -> new IllegalArgumentException("Sample not placed"));
+    public void removeBySample(long sampleId, String currentUser) { //удалить по айди образца
+        Placement placement = findBySample(sampleId)
+                .orElseThrow(() -> new IllegalArgumentException("Sample not placed"));
+        if (!placement.getOwnerUsername().equals(currentUser))
+            throw new IllegalArgumentException("You are not the owner");
         slotService.setOccupied(placement.getSlotId(), false);
         placements.remove(placement.getId());
     }

@@ -4,16 +4,18 @@ import javafx.collections.FXCollections;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 import ru.itmo.marimiari.domain.*;
 import ru.itmo.marimiari.service.*;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class ContainerDetailPane extends VBox { //вертикальный контейнер, элементы друг под другом
     private final TextField nameField = new TextField();
-    private final ComboBox<String> typeBox = new ComboBox<>();
+    private final ComboBox<String> typeBox = new ComboBox<>(); //выпадающий список
     private final Label ownerLabel = new Label();
     private final Label createdLabel = new Label();
     private final Label updatedLabel = new Label();
@@ -25,12 +27,17 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     private final SlotService slotService;
     private final PlacementService placementService;
     private final SampleService sampleService;
+    private final String currentUser;
 
-    public ContainerDetailPane(ContainerService containerService, SlotService slotService, PlacementService placementService, SampleService sampleService){
+    private Button updateButton;
+    private Button addSlotsButton;
+
+    public ContainerDetailPane(ContainerService containerService, SlotService slotService, PlacementService placementService, SampleService sampleService, String currentUser){
         this.containerService = containerService;
         this.slotService = slotService;
         this.placementService = placementService;
         this.sampleService = sampleService;
+        this.currentUser = currentUser;
         initUI(); //построение интерфейса
     }
 
@@ -57,11 +64,11 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         TableColumn<Slot, String> codeCol = new TableColumn<>("Code"); //создает колонку таблицы, в которой строки - объекты slot, а в каждой ячейке текст string
         codeCol.setCellValueFactory(cellData -> //setCellValueFactory задаёт правило, как из объекта slot (который находится в текущей строке таблицы) получить значение для отображения в ячейке
                 new javafx.beans.property.SimpleStringProperty(cellData.getValue().getCode()));
-        TableColumn<Slot, String> occupiedCol = new TableColumn<>("Occupied");
-        occupiedCol.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().isOccupied() ? "YES" : "NO"));
-        slotTable.getColumns().addAll(codeCol, occupiedCol);
-        slotTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); //колонки и растягивает в ширину
+        TableColumn<Slot, String> occupiedCol = new TableColumn<>("Occupied"); //создает колонку, которая будет отображать строки string, а данные берёт из объектов slot
+        occupiedCol.setCellValueFactory(cellData -> //задаёт правило: для каждого слота в строке таблицы берем его поле isOccupied()
+                new javafx.beans.property.SimpleStringProperty(cellData.getValue().isOccupied() ? "YES" : "NO")); //и превращаем его в строку
+        slotTable.getColumns().addAll(codeCol, occupiedCol); //добавляет обе колонки в таблицу
+        slotTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY); //колонки растягивает в ширину
 
         TableColumn<Placement, Long> sampleIdCol = new TableColumn<>("Sample ID");
         sampleIdCol.setCellValueFactory(cellData ->
@@ -78,10 +85,12 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         placeButton.setOnAction(e -> placeSample());
         Button moveButton = new Button("Move sample");
         moveButton.setOnAction(e -> moveSample());
-        Button removeButton = new Button("Remove sample");
-        removeButton.setOnAction(e -> removeSample()); //обозначаем кнопки
+        Button removeSelectedButton = new Button("Remove sample");
+        removeSelectedButton.setOnAction(e -> removeSelectedSample());
+        addSlotsButton = new Button("Add slots");
+        addSlotsButton.setOnAction(e -> showAddSlotsDialog()); //обозначаем кнопки
 
-        VBox buttonsBox = new VBox(5, placeButton, moveButton, removeButton); //выстраиваем кнопки в колонку с отступом
+        VBox buttonsBox = new VBox(5, placeButton, moveButton, removeSelectedButton, addSlotsButton); //выстраиваем кнопки в колонку с отступом
 
         this.getChildren().addAll(
                 new Label("Container details:"), grid,
@@ -95,7 +104,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
 
     public void setContainer(Container container){
         this.currentContainer = container;
-        if (container == null){ //если нет контейнера, все пустое
+        if (container == null) {
             nameField.clear();
             typeBox.getSelectionModel().clearSelection();
             ownerLabel.setText("");
@@ -103,6 +112,10 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
             updatedLabel.setText("");
             slotTable.getItems().clear();
             placementTable.getItems().clear();
+            if (updateButton != null)
+                updateButton.setDisable(true);
+            if (addSlotsButton != null)
+                addSlotsButton.setDisable(true);
             return;
         }
 
@@ -113,7 +126,11 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         updatedLabel.setText(container.getUpdatedAt().toString()); //заполнение полей данными
 
         slotTable.getItems().setAll(FXCollections.observableArrayList(slotService.getByContainer(container.getId())));
-        refreshPlacements(); //загружаем список слотов, помещаем в таблицу и обновляем
+        refreshPlacements();
+
+        boolean isOwner = container.getOwnerUsername().equals(currentUser);
+        if (updateButton != null) updateButton.setDisable(!isOwner);
+        if (addSlotsButton != null) addSlotsButton.setDisable(!isOwner);
     }
 
     private void refreshPlacements(){
@@ -128,6 +145,10 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     private void updateContainer(){
         if (currentContainer == null)
             return;
+        if (!currentContainer.getOwnerUsername().equals(currentUser)) {
+            showAlert("You are not the owner");
+            return;
+        }
         String newName = nameField.getText().trim();
         if (newName.isEmpty()){
             showAlert("Name cannot be empty");
@@ -140,7 +161,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         }
         try{
             ContainerType type = ContainerType.valueOf(typeStr); //преобразуем строку в enum и вызываем метод обновления в containerService
-            containerService.update(currentContainer.getId(), newName, type);
+            containerService.update(currentContainer.getId(), newName, type, currentUser);
             Container updated = containerService.get(currentContainer.getId()).orElse(null);
             setContainer(updated);
             showInfo("Container updated successfully");
@@ -149,41 +170,100 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         }
     }
 
+    private void showAddSlotsDialog() {
+        if (currentContainer == null) return;
+        if (!currentContainer.getOwnerUsername().equals(currentUser)) {
+            showAlert("You are not the owner");
+            return;
+        }
+
+        Dialog<int[]> dialog = new Dialog<>();
+        dialog.setTitle("Add slots");
+        dialog.setHeaderText("Create slots for container: " + currentContainer.getName());
+
+        TextField rowsField = new TextField();
+        TextField colsField = new TextField();
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("Rows (1-26):"), 0, 0);
+        grid.add(rowsField, 1, 0);
+        grid.add(new Label("Columns (1+):"), 0, 1);
+        grid.add(colsField, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        ButtonType createButton = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(createButton, ButtonType.CANCEL);
+
+        Button createBtn = (Button) dialog.getDialogPane().lookupButton(createButton);
+        createBtn.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            try {
+                int rows = Integer.parseInt(rowsField.getText().trim());
+                int cols = Integer.parseInt(colsField.getText().trim());
+                if (rows < 1 || rows > 26) {
+                    showAlert("Rows must be between 1 and 26");
+                    event.consume();
+                    return;
+                }
+                if (cols < 1) {
+                    showAlert("Columns must be at least 1");
+                    event.consume();
+                    return;
+                }
+                slotService.createSlots(currentContainer.getId(), rows, cols, currentUser);
+                slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
+                dialog.close();
+                showInfo("Slots created");
+            } catch (NumberFormatException e) {
+                showAlert("Invalid number");
+                event.consume();
+            } catch (IllegalArgumentException e) {
+                showAlert("Creation failed: " + e.getMessage());
+                event.consume();
+            }
+        });
+        dialog.showAndWait();
+    }
+
     private void placeSample(){
         if (currentContainer == null){
             showAlert("No container selected");
             return;
         }
-        TextInputDialog sampleDialog = new TextInputDialog(); //диалоговое окно для ввода
+        List<Long> sampleIds = sampleService.getAll().stream()
+                .map(Sample::getId)
+                .collect(Collectors.toList());
+        if (sampleIds.isEmpty()) {
+            showAlert("No samples available. Please add a sample first.");
+            return;
+        }
+        ChoiceDialog<Long> sampleDialog = new ChoiceDialog<>(sampleIds.get(0), sampleIds);
         sampleDialog.setTitle("Place sample");
-        sampleDialog.setHeaderText("Enter sample ID");
-        Optional<String> sampleResult = sampleDialog.showAndWait(); //showAndWait() показывает диалог и блокирует выполнение программы до тех пор, пока пользователь не закроет диалог
-        if (!sampleResult.isPresent()){ //возвращает Optional<String> (контейнер, который может либо содержать значение, либо быть пустым в зависимости от действий пользователя)
+        sampleDialog.setHeaderText("Select sample ID");
+        Optional<Long> sampleOptional = sampleDialog.showAndWait();
+        if (!sampleOptional.isPresent()) return;
+        long sampleId = sampleOptional.get();
+
+        List<Slot> freeSlots = slotService.getByContainer(currentContainer.getId()).stream()
+                .filter(slot -> !slot.isOccupied())
+                .collect(Collectors.toList());
+        if (freeSlots.isEmpty()){
+            showAlert("No free slots in this container");
             return;
         }
-        long sampleId;
-        try{
-            sampleId = Long.parseLong(sampleResult.get());
-        } catch (NumberFormatException e){
-            showAlert("Invalid sample ID");
-            return;
-        }
-        TextInputDialog slotDialog = new TextInputDialog(); //диалоговое окно для ввода кода
-        slotDialog.setTitle("Place Sample");
-        slotDialog.setHeaderText("Enter slot code (e.g., A1)");
-        Optional<String> slotResult = slotDialog.showAndWait();
-        if (!slotResult.isPresent()) return;
-        String slotCode = slotResult.get().trim();
-        if (slotCode.isEmpty()) {
-            showAlert("Slot code cannot be empty");
-            return;
-        }
-        try{
-            placementService.add(sampleId, currentContainer.getId(), slotCode, "ui_user"); //добавление размещения
+        ChoiceDialog<Slot> slotDialog = new ChoiceDialog<>(freeSlots.get(0), freeSlots);
+        slotDialog.setTitle("Select slot");
+        slotDialog.setHeaderText("Choose a free slot");
+        Optional<Slot> slotOptional = slotDialog.showAndWait();
+        if (!slotOptional.isPresent()) return;
+        Slot slot = slotOptional.get();
+
+        try {
+            placementService.add(sampleId, currentContainer.getId(), slot.getCode(), currentUser);
             refreshPlacements();
-            slotTable.getItems().setAll(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
+            slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
             showInfo("Sample placed successfully");
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             showAlert("Placement failed: " + e.getMessage());
         }
     }
@@ -193,110 +273,99 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
             showAlert("No container selected");
             return;
         }
-        TextInputDialog sampleIdDialog = new TextInputDialog();
-        sampleIdDialog.setTitle("Move sample");
-        sampleIdDialog.setHeaderText("Enter sample ID to move");
-        Optional<String> sampleResult = sampleIdDialog.showAndWait();
-        if (!sampleResult.isPresent()){
+        Placement selectedPlacement = placementTable.getSelectionModel().getSelectedItem();
+        if (selectedPlacement == null) {
+            showAlert("Please select a sample from the placements table");
             return;
         }
-        long sampleId;
-        try {
-            sampleId = Long.parseLong(sampleResult.get());
-        } catch (NumberFormatException e) {
-            showAlert("Invalid sample ID");
-            return;
-        }
-        if (!sampleService.exists(sampleId)) {
-            showAlert("Sample " + sampleId + " does not exist");
-            return;
-        }
+        long sampleId = selectedPlacement.getSampleId();
 
-        Optional<Placement> existing = placementService.findBySample(sampleId);
-        if (!existing.isPresent()){
-            showAlert("Sample " + sampleId + " is not placed anywhere");
-            return;
-        }
+        Dialog<AbstractMap.SimpleEntry<Long, String>> dialog = new Dialog<>();
+        dialog.setTitle("Move sample");
+        dialog.setHeaderText("Move sample " + sampleId + " to:");
 
-        TextInputDialog containerDialog = new TextInputDialog();
-        containerDialog.setTitle("Move sample");
-        containerDialog.setHeaderText("Enter new container ID");
-        Optional<String> containerResult = containerDialog.showAndWait();
-        if (!containerResult.isPresent()){
-            return;
-        }
-        long newContainerId;
-        try {
-            newContainerId = Long.parseLong(containerResult.get());
-        } catch (NumberFormatException e) {
-            showAlert("Invalid container ID");
-            return;
-        }
-        if (!containerService.exists(newContainerId)) {
-            showAlert("Container not found");
-            return;
-        }
-        TextInputDialog slotDialog = new TextInputDialog();
-        slotDialog.setTitle("Move Sample");
-        slotDialog.setHeaderText("Enter new slot code (e.g., A1)");
-        Optional<String> slotResult = slotDialog.showAndWait();
-        if (!slotResult.isPresent()) return;
-        String newSlotCode = slotResult.get().trim();
-        if (newSlotCode.isEmpty()) {
-            showAlert("Slot code cannot be empty");
-            return;
-        }
-
-        try{
-            placementService.move(sampleId, newContainerId, newSlotCode, "ui_user");
-            slotTable.getItems().setAll(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
-            refreshPlacements(); //обновляем таблицы текущего контейнера
-            if (currentContainer.getId() != newContainerId){
-                showInfo("Sample moved to container " + newContainerId);
-            } else {
-                showInfo("Sample moved to new slot successfully");
+        ComboBox<Container> containerCombo = new ComboBox<>();
+        containerCombo.getItems().addAll(containerService.getAll());
+        containerCombo.setConverter(new javafx.util.StringConverter<Container>() {
+            @Override
+            public String toString(Container c) {
+                return c != null ? "#" + c.getId() + " " + c.getName() + " (" + c.getType() + ")" : "";
             }
-        } catch (IllegalArgumentException e){
-            showAlert("Move failed: " + e.getMessage());
-        }
+            @Override
+            public Container fromString(String s) { return null; }
+        });
+        if (!containerCombo.getItems().isEmpty()) containerCombo.getSelectionModel().selectFirst();
+
+        ComboBox<String> slotCombo = new ComboBox<>();
+        slotCombo.setDisable(true);
+        containerCombo.valueProperty().addListener((obs, old, newContainer) -> {
+            if (newContainer != null) {
+                List<String> freeSlots = slotService.getByContainer(newContainer.getId()).stream()
+                        .filter(s -> !s.isOccupied())
+                        .map(Slot::getCode)
+                        .collect(Collectors.toList());
+                slotCombo.getItems().setAll(freeSlots);
+                slotCombo.setDisable(freeSlots.isEmpty());
+                if (!freeSlots.isEmpty()) slotCombo.getSelectionModel().selectFirst();
+            } else {
+                slotCombo.getItems().clear();
+                slotCombo.setDisable(true);
+            }
+        });
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("New container:"), 0, 0);
+        grid.add(containerCombo, 1, 0);
+        grid.add(new Label("New slot:"), 0, 1);
+        grid.add(slotCombo, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == ButtonType.OK) {
+                Container targetContainer = containerCombo.getValue();
+                String targetSlot = slotCombo.getValue();
+                if (targetContainer != null && targetSlot != null) {
+                    return new AbstractMap.SimpleEntry<>(targetContainer.getId(), targetSlot);
+                }
+            }
+            return null;
+        });
+
+        Optional<AbstractMap.SimpleEntry<Long, String>> result = dialog.showAndWait();
+        result.ifPresent(entry -> {
+            long newContainerId = entry.getKey();
+            String newSlotCode = entry.getValue();
+            try {
+                placementService.move(sampleId, newContainerId, newSlotCode, currentUser);
+                refreshPlacements();
+                slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
+                showInfo("Sample moved");
+            } catch (IllegalArgumentException e) {
+                showAlert("Move failed: " + e.getMessage());
+            }
+        });
     }
 
-    private void removeSample(){
-        if (currentContainer == null){
-            showAlert("No container selected");
+    private void removeSelectedSample() {
+        Placement selected = placementTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert("No sample selected");
             return;
         }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Remove sample");
-        dialog.setHeaderText("Enter sample ID to remove");
-        Optional<String> result = dialog.showAndWait();
-        if (!result.isPresent()){
+        if (!selected.getOwnerUsername().equals(currentUser)) {
+            showAlert("You are not the owner of this placement");
             return;
         }
-        long sampleId;
-        try{
-            sampleId = Long.parseLong(result.get());
-        } catch (NumberFormatException e){
-            showAlert("Invalid sample ID");
-            return;
-        }
-        Optional<Placement> existing = placementService.findBySample(sampleId);
-        if (!existing.isPresent()){
-            showAlert("Sample " + sampleId + " is not placed anywhere");
-            return;
-        }
-        Placement placement = existing.get();
-        if (placement.getContainerId() != currentContainer.getId()){
-            showAlert("Sample " + sampleId + " is not in this container");
-            return;
-        }
-        try{
-            placementService.removeBySample(sampleId);
+        try {
+            placementService.removeBySample(selected.getSampleId(), currentUser);
             refreshPlacements();
-            slotTable.getItems().setAll(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
-            showInfo("Sample removed successfully");
-        } catch (IllegalArgumentException e){
-            showAlert("Remove failed:" + e.getMessage());
+            slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
+            showInfo("Sample removed");
+        } catch (IllegalArgumentException e) {
+            showAlert("Remove failed: " + e.getMessage());
         }
     }
 

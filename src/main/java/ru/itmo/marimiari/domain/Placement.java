@@ -5,6 +5,7 @@ import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
+import java.util.Objects;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public final class Placement {
@@ -54,5 +55,17 @@ public final class Placement {
     @Override
     public String toString(){
         return "Sample " + sampleId;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (object == null || getClass() != object.getClass()) return false;
+        Placement placement = (Placement) object;
+        return id == placement.id && sampleId == placement.sampleId && containerId == placement.containerId && slotId == placement.slotId && Objects.equals(placedAt, placement.placedAt) && Objects.equals(ownerUsername, placement.ownerUsername);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, sampleId, containerId, slotId, placedAt, ownerUsername);
     }
 }

@@ -29,20 +29,23 @@ public class ContainerService {
         return containers.containsKey(id);
     }
 
-    public void update(long id, String name, ContainerType type) { //обновление полей
+    public void update(long id, String name, ContainerType type, String currentUser) { //обновление полей
         Container container = containers.get(id);
         if (container == null)
             throw new IllegalArgumentException("Container not found");
+        if (!container.getOwnerUsername().equals(currentUser))
+            throw new IllegalArgumentException("You are not the owner");
         if (name != null) container.setName(name);
         if (type != null) container.setType(type);
         container.setUpdatedAt(Instant.now()); //обновляется время последнего изменения
         ContainerValidator.validate(container); //повторная валидация
     }
 
-    public void remove(long id) { //удалить по айди
-        if (!exists(id)) {
-            throw new IllegalArgumentException("Container not found");
-        }
+    public void remove(long id, String currentUser) { //удалить по айди
+        Container container = containers.get(id);
+        if (container == null) throw new IllegalArgumentException("Container not found");
+        if (!container.getOwnerUsername().equals(currentUser))
+            throw new IllegalArgumentException("You are not the owner");
         containers.remove(id);
     }
 

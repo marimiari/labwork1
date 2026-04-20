@@ -28,7 +28,7 @@ public class PlaceRemoveCommand extends Command {
     @Override
     public void execute(Environment env, String[] args) throws CommandException {
         long sampleId = Long.parseLong(args[0]);
-        env.getPlacementService().removeBySample(sampleId);
+        env.getPlacementService().removeBySample(sampleId, "SYSTEM");
         System.out.println("OK sample " + sampleId + " removed from the storage");
         try {
             XmlStorage.save(Paths.get("data.xml"),

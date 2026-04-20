@@ -5,6 +5,7 @@ import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
+import java.util.Objects;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public final class Container {
@@ -74,5 +75,15 @@ public final class Container {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    @Override
+    public String toString() {
+        return "#" + id + " " + name;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, type, ownerUsername, createdAt, updatedAt);
     }
 }
