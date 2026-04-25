@@ -17,6 +17,7 @@ import ru.itmo.marimiari.storage.FileValidator;
 import ru.itmo.marimiari.storage.StorageData;
 import ru.itmo.marimiari.storage.StorageException;
 import ru.itmo.marimiari.storage.XmlStorage;
+import ru.itmo.marimiari.user.UserStorage;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,62 +34,154 @@ public class MainUI extends Application { //класс javafx приложени
     private ListView<Container> containerListView;
     private ContainerDetailPane detailPane;
     private ProgressBar progressBar;
-    private String currentUser;
+    private String currentUser = null;
+
+    private Button addContainerButton, addSlotsButton, addSampleButton, saveButton;
+    private Button loginButton, registerButton, logoutButton;
 
     @Override
     public void start(Stage primaryStage) {
-        LoginDialog loginDialog = new LoginDialog();
-        if (!loginDialog.showAndWait()) {
-            Platform.exit();
-            return;
-        }
-        currentUser = loginDialog.getLoggedInUser();
-
+        // Сервисы
         sampleService = new SampleService();
         containerService = new ContainerService();
         slotService = new SlotService(containerService);
         placementService = new PlacementService(sampleService, containerService, slotService);
+        loadInitialData();
 
-        loadDemoData(); //загружает данные из файла или создаёт демо-данные
+        // Список контейнеров
+        containerListView = new ListView<>();
+        containerListView.setCellFactory(lv -> new ListCell<Container>() {
+            @Override
+            protected void updateItem(Container c, boolean empty) {
+                super.updateItem(c, empty);
+                setText(empty || c == null ? null : "#" + c.getId() + " " + c.getName() + " (" + c.getType() + ")");
+            }
+        });
 
-        containerListView = new ListView<>(); //список для отображения контейнеров
-        detailPane = new ContainerDetailPane(containerService, slotService, placementService, sampleService, currentUser); // передаем сервисы в его конструктор, чтобы он мог вызывать их методы
+        detailPane = new ContainerDetailPane(containerService, slotService, placementService, sampleService);
+        detailPane.setCurrentUser(currentUser);
         progressBar = new ProgressBar();
-        progressBar.setVisible(false); //создается и скрыт по умолчанию
+        progressBar.setVisible(false);
 
-        Button refreshButton = new Button("Refresh"); //присваиваем кнопкам их действия
+        // Кнопки
+        Button refreshButton = new Button("Refresh");
         refreshButton.setOnAction(e -> refreshContainerList());
 
-        Button addContainerButton = new Button("Add container");
+        addContainerButton = new Button("Add container");
         addContainerButton.setOnAction(e -> showAddContainerDialog());
 
-        Button addSlotsButton = new Button("Add slots");
+        addSlotsButton = new Button("Add slots");
         addSlotsButton.setOnAction(e -> showAddSlotsDialog());
 
-        Button addSampleButton = new Button("Add Sample");
+        addSampleButton = new Button("Add sample");
         addSampleButton.setOnAction(e -> showAddSampleDialog());
 
-        Button saveButton = new Button("Save");
+        saveButton = new Button("Save");
         saveButton.setOnAction(e -> saveDataToFile());
 
-        VBox leftPane = new VBox(10, new Label("Containers"), containerListView, refreshButton, addContainerButton, addSlotsButton, progressBar);
-        leftPane.setPadding(new javafx.geometry.Insets(10)); //вертикальная панель слева: заголовок, списки, кнопки и тд
+        loginButton = new Button("Login");
+        loginButton.setOnAction(e -> showLoginDialog());
 
-        BorderPane root = new BorderPane(); //макет
-        root.setLeft(leftPane); //список - слева
-        root.setCenter(detailPane); //детали - справа
+        registerButton = new Button("Register");
+        registerButton.setOnAction(e -> showRegisterDialog());
 
-        containerListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> detailPane.setContainer(newVal));
-        //при выборе другого контейнера в списке вызывается detailPane.setContainer(newVal), который обновляет правую панель
-        refreshContainerList(); //первоначальное заполнение списка контейнеров
+        logoutButton = new Button("Logout");
+        logoutButton.setOnAction(e -> logout());
+        logoutButton.setDisable(true);
 
-        Scene scene = new Scene(root, 1100, 700); //создание сцены, те самого интерфейса
-        primaryStage.setTitle("Container Manager"); //заголовок окна
+        VBox leftPane = new VBox(10,
+                new Label("Containers"),
+                containerListView,
+                refreshButton,
+                addContainerButton,
+                addSlotsButton,
+                addSampleButton,
+                saveButton,
+                new Separator(),
+                loginButton, registerButton, logoutButton,
+                progressBar);
+        leftPane.setPadding(new javafx.geometry.Insets(10));
+
+        BorderPane root = new BorderPane();
+        root.setLeft(leftPane);
+        root.setCenter(detailPane);
+
+        containerListView.getSelectionModel().selectedItemProperty().addListener(
+                (obs, old, newVal) -> detailPane.setContainer(newVal));
+
+        refreshContainerList();
+        updateButtonsState();
+
+        Scene scene = new Scene(root, 1100, 700);
+        primaryStage.setTitle("Container Manager");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
-    private void loadInitialData() { //загружаем или файл, или демо-данные
+    private void updateButtonsState() {
+        boolean loggedIn = currentUser != null;
+        addContainerButton.setDisable(!loggedIn);
+        addSlotsButton.setDisable(!loggedIn);
+        addSampleButton.setDisable(!loggedIn);
+        saveButton.setDisable(!loggedIn);
+        loginButton.setDisable(loggedIn);
+        registerButton.setDisable(loggedIn);
+        logoutButton.setDisable(!loggedIn);
+    }
+
+    private void showLoginDialog() {
+        LoginDialog dialog = new LoginDialog();
+        if (dialog.showAndWait()) {
+            currentUser = dialog.getLoggedInUser();
+            detailPane.setCurrentUser(currentUser);
+            updateButtonsState();
+            Container selected = containerListView.getSelectionModel().getSelectedItem();
+            if (selected != null) detailPane.setContainer(selected);
+            showInfo("Logged in as " + currentUser);
+        }
+    }
+
+    private void showRegisterDialog() {
+        TextInputDialog loginDlg = new TextInputDialog();
+        loginDlg.setTitle("Registration");
+        loginDlg.setHeaderText("Enter login");
+        Optional<String> loginRes = loginDlg.showAndWait();
+        if (!loginRes.isPresent()) return;
+        String login = loginRes.get().trim();
+        if (login.isEmpty()) {
+            showAlert("Login cannot be empty");
+            return;
+        }
+
+        TextInputDialog passDlg = new TextInputDialog();
+        passDlg.setTitle("Registration");
+        passDlg.setHeaderText("Enter password");
+        Optional<String> passRes = passDlg.showAndWait();
+        if (!passRes.isPresent()) return;
+        String password = passRes.get();
+        if (password.isEmpty()) {
+            showAlert("Password cannot be empty");
+            return;
+        }
+
+        UserStorage storage = new UserStorage();
+        if (storage.register(login, password)) {
+            showInfo("Registration successful. Please login.");
+        } else {
+            showAlert("Login already exists");
+        }
+    }
+
+    private void logout() {
+        currentUser = null;
+        detailPane.setCurrentUser(null);
+        updateButtonsState();
+        Container selected = containerListView.getSelectionModel().getSelectedItem();
+        if (selected != null) detailPane.setContainer(selected);
+        showInfo("Logged out");
+    }
+
+    private void loadInitialData() {
         Path path = Paths.get(SAVE_FILE);
         if (Files.exists(path)) {
             try {
@@ -102,29 +195,23 @@ public class MainUI extends Application { //класс javafx приложени
                 slotService.addAll(data.getSlots());
                 placementService.clear();
                 placementService.addAll(data.getPlacements());
-                System.out.println("Loaded data from " + SAVE_FILE);
             } catch (Exception e) {
-                e.printStackTrace(); //метод, показывающий в каком месте и в какой последовательности методов произошла ошибка
-                //какое исключение было выброшено и тд; дает больше деталей чем просто принт
+                e.printStackTrace();
                 loadDemoData();
             }
         } else {
-                loadDemoData();
+            loadDemoData();
         }
     }
 
-    private void loadDemoData() { //создает начальные образцы, контейнеры, слоты, размещения (для теста)
-        for (int i = 0; i < 5; i++) //используется только если файл не загрузился
-            sampleService.add(currentUser);
-
-        long cont1 = containerService.add("test-1", ContainerType.FREEZER, currentUser).getId();
-        long cont2 = containerService.add("test-2", ContainerType.FRIDGE, currentUser).getId();
-
-        slotService.createSlots(cont1, 3, 4, currentUser);
-        slotService.createSlots(cont2, 2, 3, currentUser);
-
-        placementService.add(1, cont1, "A1", currentUser);
-        placementService.add(2, cont1, "B2", currentUser);
+    private void loadDemoData() {
+        for (int i = 0; i < 3; i++) sampleService.add("SYSTEM");
+        long c1 = containerService.add("Demo-Freezer", ContainerType.FREEZER, "SYSTEM").getId();
+        long c2 = containerService.add("Demo-Fridge", ContainerType.FRIDGE, "SYSTEM").getId();
+        slotService.createSlots(c1, 2, 3, "SYSTEM");
+        slotService.createSlots(c2, 2, 2, "SYSTEM");
+        placementService.add(1, c1, "A1", "SYSTEM");
+        placementService.add(2, c1, "B2", "SYSTEM");
     }
 
     private void autoSave() {
@@ -136,46 +223,43 @@ public class MainUI extends Application { //класс javafx приложени
     }
 
     private void saveDataToFile() {
+        if (currentUser == null) {
+            showAlert("Please login first");
+            return;
+        }
         showProgress(true);
-        new Thread(() -> { //показывает прогресс-бар, запускает отдельный поток (new Thread), чтобы окно не зависало
+        new Thread(() -> {
             try {
-                XmlStorage.save(Paths.get(SAVE_FILE), sampleService, containerService, slotService, placementService); //сохранение
-                Platform.runLater(() -> { //возвращает управление в главный поток, чтоб обновить ui
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "Data saved to " + SAVE_FILE, ButtonType.OK);
-                    alert.showAndWait();
+                XmlStorage.save(Paths.get(SAVE_FILE), sampleService, containerService, slotService, placementService);
+                Platform.runLater(() -> {
+                    showInfo("Saved");
                     showProgress(false);
                 });
             } catch (StorageException e) {
                 Platform.runLater(() -> {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Save failed: " + e.getMessage(), ButtonType.OK);
-                    alert.showAndWait();
+                    showAlert("Save failed: " + e.getMessage());
                     showProgress(false);
                 });
             }
         }).start();
     }
-    //в потоке вызывается XmlStorage.save.
-    // после успеха (или ошибки) через Platform.runLater возвращаемся в javafx-поток и показываем диалог, скрываем прогресс
 
     private void refreshContainerList() {
-        showProgress(true); //показывает прогресс
-        new Thread(() -> { //запускает поток с искусственной задержкой
+        showProgress(true);
+        new Thread(() -> {
             try {
                 Thread.sleep(300);
             } catch (InterruptedException e) {
             }
             Platform.runLater(() -> {
-                reloadFromFile(); //загружаем свежие данные
-                List<Container> containers = List.copyOf(containerService.getAll()); //обновляем список
+                reloadFromFile();
+                List<Container> containers = List.copyOf(containerService.getAll());
                 containerListView.setItems(FXCollections.observableArrayList(containers));
                 Container selected = containerListView.getSelectionModel().getSelectedItem();
-                if (selected != null) {
-                    if (containers.contains(selected)) {
-                        detailPane.setContainer(selected);
-                    } else {
-                        detailPane.setContainer(null);
-                    }
-                }
+                if (selected != null && containers.contains(selected))
+                    detailPane.setContainer(selected);
+                else
+                    detailPane.setContainer(null);
                 showProgress(false);
             });
         }).start();
@@ -187,162 +271,142 @@ public class MainUI extends Application { //класс javafx приложени
         try {
             StorageData data = XmlStorage.load(path);
             FileValidator.validate(data);
-            sampleService.clear(); sampleService.addAll(data.getSamples());
-            containerService.clear(); containerService.addAll(data.getContainers());
-            slotService.clear(); slotService.addAll(data.getSlots());
-            placementService.clear(); placementService.addAll(data.getPlacements());
+            sampleService.clear();
+            sampleService.addAll(data.getSamples());
+            containerService.clear();
+            containerService.addAll(data.getContainers());
+            slotService.clear();
+            slotService.addAll(data.getSlots());
+            placementService.clear();
+            placementService.addAll(data.getPlacements());
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void showProgress(boolean show) { //обертка, чтобы менять видимость из любого потока
-        Platform.runLater(() -> progressBar.setVisible(show)); //вызов обернут в Platform.runLater
+    private void showProgress(boolean show) {
+        Platform.runLater(() -> progressBar.setVisible(show));
     }
 
     private void showAddContainerDialog() {
-        Dialog<Container> dialog = new Dialog<>();
-        dialog.setTitle("Add Container");
-        dialog.setHeaderText("Enter container details");
-
+        if (currentUser == null) {
+            showAlert("Please login first");
+            return;
+        }
+        Dialog<Container> d = new Dialog<>();
+        d.setTitle("Add Container");
         TextField nameField = new TextField();
         ComboBox<String> typeBox = new ComboBox<>();
         typeBox.getItems().addAll("FREEZER", "FRIDGE", "BOX");
-        TextField ownerField = new TextField();
-
         GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Type:"), 0, 1);
         grid.add(typeBox, 1, 1);
-        grid.add(new Label("Owner:"), 0, 2);
-        grid.add(ownerField, 1, 2);
-        dialog.getDialogPane().setContent(grid);
-
-        ButtonType addButtonType = new ButtonType("Add", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
-
-        Button addButton = (Button) dialog.getDialogPane().lookupButton(addButtonType);
-        addButton.addEventFilter(ActionEvent.ACTION, event -> {
+        d.getDialogPane().setContent(grid);
+        ButtonType ok = new ButtonType("Add", ButtonBar.ButtonData.OK_DONE);
+        d.getDialogPane().getButtonTypes().addAll(ok, ButtonType.CANCEL);
+        Button btn = (Button) d.getDialogPane().lookupButton(ok);
+        btn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
             String name = nameField.getText().trim();
             String typeStr = typeBox.getValue();
-            String owner = ownerField.getText().trim();
-
             if (name.isEmpty()) {
-                showAlert("Name cannot be empty");
-                event.consume();
+                showAlert("Name empty");
+                ev.consume();
                 return;
             }
             if (typeStr == null) {
-                showAlert("Please select a type");
-                event.consume();
+                showAlert("Select type");
+                ev.consume();
                 return;
             }
-            if (owner.isEmpty()) {
-                showAlert("Owner cannot be empty");
-                event.consume();
-                return;
-            }
-
             try {
                 ContainerType type = ContainerType.valueOf(typeStr);
-                Container newContainer = containerService.add(name, type, owner);
-
-                try {
-                    XmlStorage.save(Paths.get(SAVE_FILE), sampleService, containerService, slotService, placementService);
-                } catch (StorageException e){
-                    showAlert("Auto-save failed: " + e.getMessage());
-                }
+                Container newCont = containerService.add(name, type, currentUser);
+                autoSave();
                 ObservableList<Container> items = FXCollections.observableArrayList(containerListView.getItems());
-                items.add(newContainer);
+                items.add(newCont);
                 containerListView.setItems(items);
-                containerListView.getSelectionModel().select(newContainer);
-                dialog.close();
+                containerListView.getSelectionModel().select(newCont);
+                d.close();
                 showInfo("Container added");
-            } catch (IllegalArgumentException e){
-                showAlert("Failed to add container: " + e.getMessage());
-                event.consume();
+            } catch (IllegalArgumentException e) {
+                showAlert(e.getMessage());
+                ev.consume();
             }
         });
-
-        dialog.showAndWait();
+        d.showAndWait();
     }
 
     private void showAddSlotsDialog() {
-        Container selected = containerListView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("Please select a container first");
+        if (currentUser == null) {
+            showAlert("Please login first");
             return;
         }
-
-        if (!selected.getOwnerUsername().equals(currentUser)) {
-            showAlert("You are not the owner of this container");
+        Container sel = containerListView.getSelectionModel().getSelectedItem();
+        if (sel == null) {
+            showAlert("Select container first");
             return;
         }
-
-        Dialog<int[]> dialog = new Dialog<>();
-        dialog.setTitle("Add slots");
-        dialog.setHeaderText("Create slots for container: " + selected.getName());
-
-        TextField rowsField = new TextField();
-        TextField colsField = new TextField();
-        GridPane grid = new GridPane();
-        grid.add(new Label("Rows (1-26):"), 0, 0);
-        grid.add(rowsField, 1, 0);
-        grid.add(new Label("Columns (1+):"), 0, 1);
-        grid.add(colsField, 1, 1);
-        dialog.getDialogPane().setContent(grid);
-
-        ButtonType createButton = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(createButton, ButtonType.CANCEL);
-
-        Button createBtn = (Button) dialog.getDialogPane().lookupButton(createButton);
-        createBtn.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+        if (!sel.getOwnerUsername().equals(currentUser)) {
+            showAlert("Not owner");
+            return;
+        }
+        Dialog<int[]> d = new Dialog<>();
+        d.setTitle("Add slots");
+        TextField rowsField = new TextField(), colsField = new TextField();
+        GridPane g = new GridPane();
+        g.add(new Label("Rows (1-26):"), 0, 0);
+        g.add(rowsField, 1, 0);
+        g.add(new Label("Columns (1+):"), 0, 1);
+        g.add(colsField, 1, 1);
+        d.getDialogPane().setContent(g);
+        ButtonType ok = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+        d.getDialogPane().getButtonTypes().addAll(ok, ButtonType.CANCEL);
+        Button btn = (Button) d.getDialogPane().lookupButton(ok);
+        btn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
             try {
                 int rows = Integer.parseInt(rowsField.getText().trim());
                 int cols = Integer.parseInt(colsField.getText().trim());
-                if (rows < 1 || rows > 26) {
-                    showAlert("Rows must be between 1 and 26");
-                    event.consume();
+                if (rows < 1 || rows > 26 || cols < 1) {
+                    showAlert("Rows 1-26, Cols >=1");
+                    ev.consume();
                     return;
                 }
-                if (cols < 1) {
-                    showAlert("Columns must be at least 1");
-                    event.consume();
-                    return;
-                }
-                slotService.createSlots(selected.getId(), rows, cols, currentUser);
+                slotService.createSlots(sel.getId(), rows, cols, currentUser);
                 autoSave();
-                detailPane.setContainer(selected);
-                dialog.close();
+                detailPane.setContainer(sel);
+                d.close();
                 showInfo("Slots created");
             } catch (NumberFormatException e) {
                 showAlert("Invalid number");
-                event.consume();
+                ev.consume();
             } catch (IllegalArgumentException e) {
-                showAlert("Creation failed: " + e.getMessage());
-                event.consume();
+                showAlert(e.getMessage());
+                ev.consume();
             }
         });
-        dialog.showAndWait();
+        d.showAndWait();
     }
 
     private void showAddSampleDialog() {
+        if (currentUser == null) {
+            showAlert("Please login first");
+            return;
+        }
         sampleService.add(currentUser);
         autoSave();
-        showInfo("New sample created. Total samples: " + sampleService.getAll().size());
+        showInfo("Sample added. Total: " + sampleService.getAll().size());
     }
 
-    private void showAlert(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
-        alert.showAndWait();
+    private void showAlert(String msg) {
+        Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
+        a.showAndWait();
     }
 
-    private void showInfo(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
-        alert.showAndWait();
+    private void showInfo(String msg) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
+        a.showAndWait();
     }
 
     public static void main(String[] args) {

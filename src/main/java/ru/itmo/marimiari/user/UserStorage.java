@@ -18,15 +18,15 @@ public class UserStorage {
     private List<User> users = new ArrayList<>();
 
     public UserStorage(){
-        load(); //загружает пользователей из файла
+        load(); //загружает пользователей из файла при создании объекта (если файл есть)
     }
 
     public void load(){
         if (!Files.exists(USER_FILE)) return; //преобразует json в user при наличии файла
-        try (Reader reader = new FileReader(USER_FILE.toFile())) {
-            Gson gson = new Gson();
-            Type type = new TypeToken<List<User>>(){}.getType();
-            users = gson.fromJson(reader, type);
+        try (Reader reader = new FileReader(USER_FILE.toFile())) { //открывает файл для чтения
+            Gson gson = new Gson(); //превращает json-строки в java-объекты и обратно
+            Type type = new TypeToken<List<User>>(){}.getType(); //чтоб gson понял, что в файле лежит список пользователей
+            users = gson.fromJson(reader, type); //читает json и превращает его в список пользователей
             if (users == null) users = new ArrayList<>();
         } catch (IOException e) {
             e.printStackTrace();
@@ -34,9 +34,9 @@ public class UserStorage {
     }
 
     public void save(){
-        try (Writer writer = new FileWriter(USER_FILE.toFile())){
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            gson.toJson(users, writer); //записывает текущий список пользователей в json с форматированием
+        try (Writer writer = new FileWriter(USER_FILE.toFile())){ //открывает файл для записи
+            Gson gson = new GsonBuilder().setPrettyPrinting().create(); //настраивает gson, чтоб json был красивым
+            gson.toJson(users, writer); //превращает список пользователей в json и записывает в файл
         } catch (IOException e){
             e.printStackTrace();
         }
@@ -54,6 +54,7 @@ public class UserStorage {
     }
 
     private Optional<User> findByLogin(String login) {
-        return users.stream().filter(u -> u.getLogin().equals(login)).findFirst(); //внутренний метод, ищет пользователя по логину в списке
+        return users.stream().filter(u -> u.getLogin().equals(login)).findFirst(); //превращает список в поток, оставляет только с совпадающим логином
+        //из отфильтрованных берет первый, но тк логины уникальны, он будет уникальным, возвращает либо найденного пользователя, либо остается пуст
     }
 }
