@@ -1,32 +1,28 @@
 package ru.itmo.marimiari.domain;
 
-import jakarta.xml.bind.annotation.XmlAccessType;
-import jakarta.xml.bind.annotation.XmlAccessorType;
-
 import java.util.Objects;
 
-@XmlAccessorType(XmlAccessType.FIELD)
 public final class Sample {
     private long id;
-    private String ownerUsername;
+    private long ownerId;
 
-    public Sample(){}
-
-    public Sample(long id, String ownerUsername) {
-        this.id = id;
-        this.ownerUsername = ownerUsername;
+    public Sample() {
     }
 
     public long getId() {
         return id;
     }
 
-    public String getOwnerUsername() {
-        return ownerUsername;
+    public void setId(long id) {
+        this.id = id;
     }
 
-    public void setOwnerUsername(String ownerUsername) {
-        this.ownerUsername = ownerUsername;
+    public long getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(long ownerId) {
+        this.ownerId = ownerId;
     }
 
     @Override

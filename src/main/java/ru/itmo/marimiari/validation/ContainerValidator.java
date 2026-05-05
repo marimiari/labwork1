@@ -8,7 +8,7 @@ public class ContainerValidator {
         checkNotNull(container);
         checkName(container.getName());
         checkType(container.getType());
-        checkOwner(container.getOwnerUsername());
+        checkOwner(container.getOwnerLogin());
     }
 
     private static void checkNotNull(Container container) {

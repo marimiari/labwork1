@@ -33,7 +33,7 @@ public class ContShowCommand extends Command {
         System.out.println("Container #" + c.getId());
         System.out.println("name: " + c.getName());
         System.out.println("type: " + c.getType());
-        System.out.println("owner: " + c.getOwnerUsername());
+        System.out.println("owner: " + c.getOwnerLogin());
         System.out.println("created: " + c.getCreatedAt());
         System.out.println("updated: " + c.getUpdatedAt());
         List<Slot> slots = env.getSlotService().getByContainer(id);

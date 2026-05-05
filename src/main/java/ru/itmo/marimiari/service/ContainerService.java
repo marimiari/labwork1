@@ -2,64 +2,65 @@ package ru.itmo.marimiari.service;
 
 import ru.itmo.marimiari.domain.Container;
 import ru.itmo.marimiari.domain.ContainerType;
-import ru.itmo.marimiari.validation.ContainerValidator;
+import ru.itmo.marimiari.repository.ContainerRepository;
+
 import java.time.Instant;
 import java.util.*;
 
 public class ContainerService {
-    private final Map<Long, Container> containers = new LinkedHashMap<>(); //сохраняет порядок добавления (ссылка не меняется из-за final)
-    private long nextId = 1; //счетчик для генерации уникальных айди
+    private final Map<Long, Container> cache = new LinkedHashMap<>();
+    private final ContainerRepository repository;
+    private long currentUserId;
 
-    public Container add(String name, ContainerType type, String owner) { //создаёт новый контейнер и добавляет его в хранилище
-        Container container = new Container(nextId++, name, type, owner);
-        ContainerValidator.validate(container); //проверка корректности полей
-        containers.put(container.getId(), container); //сохраняет в мап
+    public ContainerService(ContainerRepository repository) {
+        this.repository = repository;
+        loadAll();
+    }
+
+    private void loadAll() {
+        List<Container> list = repository.findALL();
+        cache.clear();
+        for (Container container : list) cache.put(container.getId(), container);
+    }
+
+    public void setCurrentUserId(long userId) {
+        this.currentUserId = userId;
+    }
+
+    public Container add(String name, ContainerType type) {
+        Container container = repository.insert(name, type, currentUserId);
+        if (container != null) {
+            cache.put(container.getId(), container);
+        }
         return container;
     }
 
-    public Optional<Container> get(long id) { //получить контейнер по айди
-        return Optional.ofNullable(containers.get(id));
+    public Optional<Container> get(long id) {
+        return Optional.ofNullable(cache.get(id));
     }
 
-    public Collection<Container> getAll() { //возврат всей коллекции значений
-        return Collections.unmodifiableCollection(containers.values()); //тут любая попытка изменить-исключение
+    public Collection<Container> getAll() {
+        return Collections.unmodifiableCollection(cache.values());
     }
 
-    public boolean exists(long id) { //проверяет существование контейнера с таким айди
-        return containers.containsKey(id);
+    public boolean exists(long id) {
+        return cache.containsKey(id);
     }
 
-    public void update(long id, String name, ContainerType type, String currentUser) { //обновление полей
-        Container container = containers.get(id);
-        if (container == null)
-            throw new IllegalArgumentException("Container not found");
-        if (!container.getOwnerUsername().equals(currentUser))
-            throw new IllegalArgumentException("You are not the owner");
-        if (name != null) container.setName(name);
-        if (type != null) container.setType(type);
-        container.setUpdatedAt(Instant.now()); //обновляется время последнего изменения
-        ContainerValidator.validate(container); //повторная валидация
+    public void update(long id, String name, ContainerType type) {
+        if (!cache.containsKey(id)) throw new IllegalArgumentException("Container not found");
+        boolean ok = repository.update(id, name, type, currentUserId);
+        if (!ok) throw new IllegalArgumentException("You are not the owner");
+        Container c = cache.get(id);
+        c.setName(name);
+        c.setType(type);
+        c.setUpdatedAt(Instant.now());
     }
 
-    public void remove(long id, String currentUser) { //удалить по айди
-        Container container = containers.get(id);
-        if (container == null) throw new IllegalArgumentException("Container not found");
-        if (!container.getOwnerUsername().equals(currentUser))
-            throw new IllegalArgumentException("You are not the owner");
-        containers.remove(id);
+    public void remove(long id) {
+        if (!cache.containsKey(id)) throw new IllegalArgumentException("Container not found");
+        repository.delete(id, currentUserId);
+        cache.remove(id);
     }
 
-    public void clear() {
-        containers.clear();
-        nextId = 1;
-    }
-
-    public void addAll(Collection<Container> collection) {
-        for (Container c : collection) {
-            containers.put(c.getId(), c);
-            if (c.getId() >= nextId) {
-                nextId = c.getId() + 1;
-            }
-        }
-    }
 }

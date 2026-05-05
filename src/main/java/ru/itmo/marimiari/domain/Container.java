@@ -1,32 +1,17 @@
 package ru.itmo.marimiari.domain;
 
-import jakarta.xml.bind.annotation.XmlAccessType;
-import jakarta.xml.bind.annotation.XmlAccessorType;
-import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
-import java.util.Objects;
 
-@XmlAccessorType(XmlAccessType.FIELD)
 public final class Container {
     private long id;
     private String name;
     private ContainerType type;
-    private String ownerUsername;
-    @XmlJavaTypeAdapter(InstantAdapter.class)
+    private long ownerId;
+    private String ownerLogin;
     private Instant createdAt;
-    @XmlJavaTypeAdapter(InstantAdapter.class)
     private Instant updatedAt;
 
-    public Container() {}
-
-    public Container(long id, String name, ContainerType type, String ownerUsername) {
-        this.id = id;
-        this.setName(name);
-        this.type = type;
-        this.ownerUsername = ownerUsername;
-        this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
+    public Container() {
     }
 
     public long getId() {
@@ -42,11 +27,7 @@ public final class Container {
     }
 
     public void setName(String name) {
-        if (name != null && !name.isEmpty() && name.length() <= 64) {
-            this.name = name;
-        } else {
-            throw new IllegalArgumentException("Invalid name: " + name);
-        }
+        this.name = name;
     }
 
     public ContainerType getType() {
@@ -57,16 +38,28 @@ public final class Container {
         this.type = type;
     }
 
-    public String getOwnerUsername() {
-        return ownerUsername;
+    public long getOwnerId() {
+        return ownerId;
     }
 
-    public void setOwnerUsername(String ownerUsername) {
-        this.ownerUsername = ownerUsername;
+    public void setOwnerId(long ownerId) {
+        this.ownerId = ownerId;
+    }
+
+    public String getOwnerLogin() {
+        return ownerLogin;
+    }
+
+    public void setOwnerLogin(String ownerLogin) {
+        this.ownerLogin = ownerLogin;
     }
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     public Instant getUpdatedAt() {
@@ -75,15 +68,5 @@ public final class Container {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    @Override
-    public String toString() {
-        return "#" + id + " " + name;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, type, ownerUsername, createdAt, updatedAt);
     }
 }

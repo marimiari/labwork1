@@ -16,7 +16,6 @@ public class XmlStorage {
         StorageData data = new StorageData();
         data.getSamples().addAll(sampleService.getAll());
         data.getContainers().addAll(containerService.getAll());
-        data.getSlots().addAll(slotService.getAll());
         data.getPlacements().addAll(placementService.getAll());
 
         try {

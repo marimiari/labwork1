@@ -1,31 +1,19 @@
 package ru.itmo.marimiari.domain;
 
-import jakarta.xml.bind.annotation.XmlAccessType;
-import jakarta.xml.bind.annotation.XmlAccessorType;
-import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-import ru.itmo.marimiari.storage.InstantAdapter;
 import java.time.Instant;
 import java.util.Objects;
 
-@XmlAccessorType(XmlAccessType.FIELD)
+
 public final class Slot {
     private long id;
     private long containerId;
     private String code;
     private boolean occupied;
-    @XmlJavaTypeAdapter(InstantAdapter.class)
     private Instant createdAt;
-    private String ownerUsername;
+    private long ownerId;
+    private String ownerLogin;
 
-    public Slot(){}
-
-    public Slot(long id, long containerId, String code, boolean occupied, Instant createdAt, String ownerUsername) {
-        this.id = id;
-        this.containerId = containerId;
-        this.code = code;
-        this.occupied = false;
-        this.createdAt = Instant.now();
-        this.ownerUsername = ownerUsername;
+    public Slot() {
     }
 
     public long getId() {
@@ -68,28 +56,19 @@ public final class Slot {
         this.createdAt = createdAt;
     }
 
-    public String getOwnerUsername() {
-        return ownerUsername;
+    public long getOwnerId() {
+        return ownerId;
     }
 
-    public void setOwnerUsername(String ownerUsername) {
-        this.ownerUsername = ownerUsername;
+    public void setOwnerId(long ownerId) {
+        this.ownerId = ownerId;
     }
 
-    @Override
-    public String toString(){
-        return code;
+    public String getOwnerLogin() {
+        return ownerLogin;
     }
 
-    @Override
-    public boolean equals(Object object) {
-        if (object == null || getClass() != object.getClass()) return false;
-        Slot slot = (Slot) object;
-        return id == slot.id && containerId == slot.containerId && occupied == slot.occupied && Objects.equals(code, slot.code) && Objects.equals(createdAt, slot.createdAt);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, containerId, code, occupied, createdAt);
+    public void setOwnerLogin(String ownerLogin) {
+        this.ownerLogin = ownerLogin;
     }
 }

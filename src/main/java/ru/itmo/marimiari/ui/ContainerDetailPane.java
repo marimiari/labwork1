@@ -4,16 +4,16 @@ import javafx.collections.FXCollections;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.util.StringConverter;
 import ru.itmo.marimiari.domain.*;
 import ru.itmo.marimiari.service.*;
+import ru.itmo.marimiari.user.User;
 
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class ContainerDetailPane extends VBox { //вертикальный контейнер, элементы друг под другом
+public class ContainerDetailPane extends VBox {
     private final TextField nameField = new TextField();
     private final ComboBox<String> typeBox = new ComboBox<>();
     private final Label ownerLabel = new Label();
@@ -27,31 +27,19 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     private final SlotService slotService;
     private final PlacementService placementService;
     private final SampleService sampleService;
-    private String currentUser;
+    private final User currentUser;
 
     private Button updateButton, addSlotsButton, placeButton, moveButton, removeButton;
 
     public ContainerDetailPane(ContainerService containerService, SlotService slotService,
-                               PlacementService placementService, SampleService sampleService) {
+                               PlacementService placementService, SampleService sampleService,
+                               User currentUser) {
         this.containerService = containerService;
         this.slotService = slotService;
         this.placementService = placementService;
         this.sampleService = sampleService;
+        this.currentUser = currentUser;
         initUI();
-    }
-
-    public void setCurrentUser(String user) {
-        this.currentUser = user;
-        if (currentContainer != null) setContainer(currentContainer);
-        else disableAllButtons(true);
-    }
-
-    private void disableAllButtons(boolean disable) {
-        if (updateButton != null) updateButton.setDisable(disable);
-        if (addSlotsButton != null) addSlotsButton.setDisable(disable);
-        if (placeButton != null) placeButton.setDisable(disable);
-        if (moveButton != null) moveButton.setDisable(disable);
-        if (removeButton != null) removeButton.setDisable(disable);
     }
 
     private void initUI() {
@@ -118,24 +106,32 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
             updatedLabel.setText("");
             slotTable.getItems().clear();
             placementTable.getItems().clear();
-            disableAllButtons(true);
+            disableEditButtons(true);
             return;
         }
         nameField.setText(container.getName());
         typeBox.setValue(container.getType().name());
-        ownerLabel.setText(container.getOwnerUsername());
+        ownerLabel.setText(container.getOwnerLogin() != null ? container.getOwnerLogin() : String.valueOf(container.getOwnerId()));
         createdLabel.setText(container.getCreatedAt().toString());
         updatedLabel.setText(container.getUpdatedAt().toString());
 
         slotTable.getItems().setAll(FXCollections.observableArrayList(slotService.getByContainer(container.getId())));
         refreshPlacements();
 
-        boolean canEdit = (currentUser != null && currentUser.equals(container.getOwnerUsername()));
+        boolean canEdit = (currentUser != null && container.getOwnerId() == currentUser.getId());
         updateButton.setDisable(!canEdit);
         addSlotsButton.setDisable(!canEdit);
         placeButton.setDisable(!canEdit);
         moveButton.setDisable(!canEdit);
         removeButton.setDisable(!canEdit);
+    }
+
+    private void disableEditButtons(boolean disable) {
+        updateButton.setDisable(disable);
+        addSlotsButton.setDisable(disable);
+        placeButton.setDisable(disable);
+        moveButton.setDisable(disable);
+        removeButton.setDisable(disable);
     }
 
     private void refreshPlacements() {
@@ -146,8 +142,8 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     }
 
     private void updateContainer() {
-        if (currentContainer == null || currentUser == null) return;
-        if (!currentUser.equals(currentContainer.getOwnerUsername())) {
+        if (currentContainer == null) return;
+        if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
         }
@@ -163,7 +159,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         }
         try {
             ContainerType type = ContainerType.valueOf(typeStr);
-            containerService.update(currentContainer.getId(), newName, type, currentUser);
+            containerService.update(currentContainer.getId(), newName, type);
             Container updated = containerService.get(currentContainer.getId()).orElse(null);
             setContainer(updated);
             showInfo("Container updated");
@@ -173,8 +169,8 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     }
 
     private void showAddSlotsDialog() {
-        if (currentContainer == null || currentUser == null) return;
-        if (!currentUser.equals(currentContainer.getOwnerUsername())) {
+        if (currentContainer == null) return;
+        if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
         }
@@ -199,7 +195,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
                     ev.consume();
                     return;
                 }
-                slotService.createSlots(currentContainer.getId(), rows, cols, currentUser);
+                slotService.createSlots(currentContainer.getId(), rows, cols);
                 setContainer(currentContainer);
                 d.close();
                 showInfo("Slots created");
@@ -215,11 +211,11 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     }
 
     private void placeSample() {
-        if (currentContainer == null || currentUser == null) {
+        if (currentContainer == null) {
             showAlert("No container selected");
             return;
         }
-        if (!currentUser.equals(currentContainer.getOwnerUsername())) {
+        if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
         }
@@ -245,7 +241,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         if (!slotOpt.isPresent()) return;
         Slot slot = slotOpt.get();
         try {
-            placementService.add(sampleId, currentContainer.getId(), slot.getCode(), currentUser);
+            placementService.add(sampleId, currentContainer.getId(), slot.getCode());
             refreshPlacements();
             slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
             showInfo("Sample placed");
@@ -255,11 +251,11 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     }
 
     private void moveSample() {
-        if (currentContainer == null || currentUser == null) {
+        if (currentContainer == null) {
             showAlert("No container selected");
             return;
         }
-        if (!currentUser.equals(currentContainer.getOwnerUsername())) {
+        if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
         }
@@ -317,7 +313,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
         Optional<AbstractMap.SimpleEntry<Long, String>> res = d.showAndWait();
         res.ifPresent(pair -> {
             try {
-                placementService.move(sampleId, pair.getKey(), pair.getValue(), currentUser);
+                placementService.move(sampleId, pair.getKey(), pair.getValue());
                 refreshPlacements();
                 slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
                 showInfo("Sample moved");
@@ -328,8 +324,8 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
     }
 
     private void removeSelectedSample() {
-        if (currentContainer == null || currentUser == null) return;
-        if (!currentUser.equals(currentContainer.getOwnerUsername())) {
+        if (currentContainer == null) return;
+        if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
         }
@@ -339,7 +335,7 @@ public class ContainerDetailPane extends VBox { //вертикальный ко�
             return;
         }
         try {
-            placementService.removeBySample(selected.getSampleId(), currentUser);
+            placementService.removeBySample(selected.getSampleId());
             refreshPlacements();
             slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
             showInfo("Sample removed");

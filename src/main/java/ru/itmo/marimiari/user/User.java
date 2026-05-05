@@ -5,25 +5,43 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 public class User {
+    private long id;
     private String login;
     private String passwordHash;
+
+    public User() {
+    } //нужно для библиотеки gson
 
     public User(String login, String password) { //принимает логин и пароль
         this.login = login;
         this.passwordHash = hashPassword(password); //хеширует пароль и сохраняет хеш
     }
 
-    public User(){} //нужно для библиотеки gson
+    public long getId() {
+        return id;
+    }
 
-    public String getLogin(){
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getLogin() {
         return login;
     }
 
-    public String getPasswordHash(){
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public String getPasswordHash() {
         return passwordHash;
     }
 
-    private static String hashPassword(String password) {
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public static String hashPassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256"); //берет пароль и превращает в байты, прогоняет через SHA-256, делает уникальную строку длиной 256 бит
             byte[] hash = md.digest(password.getBytes()); //превращает строку пароля в массив байт, вычисляет SHA-256 хеш от этих байтов
@@ -35,7 +53,7 @@ public class User {
         }
     }
 
-    public boolean checkPassword(String password){
+    public boolean checkPassword(String password) {
         return passwordHash.equals(hashPassword(password)); //проверяет, совпадает ли хеш переданного пароля с сохраненным хешем
     }
 }

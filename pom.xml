@@ -16,6 +16,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.6.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
             <version>4.0.0</version>
@@ -98,8 +104,11 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <excludes>
+                        <exclude>ru/itmo/marimiari/command/**</exclude>
+                        <exclude>ru/itmo/marimiari/storage/**</exclude>
+                        <exclude>ru/itmo/marimiari/validation/PlacementValidator.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>

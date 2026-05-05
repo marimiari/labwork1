@@ -5,15 +5,22 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
-import ru.itmo.marimiari.user.UserStorage;
+import ru.itmo.marimiari.service.UserService;
+import ru.itmo.marimiari.user.User;
+
+import java.util.Optional;
 
 public class LoginDialog {
-    private final UserStorage userStorage = new UserStorage();
-    private String loggedInUser = null;
+    private final UserService userService;
+    private User loggedInUser = null;
+
+    public LoginDialog(UserService userService) {
+        this.userService = userService;
+    }
 
     public boolean showAndWait(){
         Stage stage = new Stage();
-        stage.setTitle("Welcome | Login / Register");
+        stage.setTitle("Welcome");
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -41,8 +48,9 @@ public class LoginDialog {
                 showAlert("Please fill both fields");
                 return;
             }
-            if (userStorage.login(login, password).isPresent()) {
-                loggedInUser = login;
+            Optional<User> userOpt = userService.login(login, password);
+            if (userOpt.isPresent()) {
+                loggedInUser = userOpt.get();
                 stage.close();
             } else {
                 showAlert("Invalid login or password");
@@ -56,7 +64,7 @@ public class LoginDialog {
                 showAlert("Please fill both fields");
                 return;
             }
-            if (userStorage.register(login, password)){
+            if (userService.register(login, password)) {
                 showAlert("Registration successful. Please login.");
             } else {
                 showAlert("Login already exists");
@@ -70,7 +78,7 @@ public class LoginDialog {
         return loggedInUser != null; //возвращает true, если успешно вошли
     }
 
-    public String getLoggedInUser(){
+    public User getLoggedInUser(){
         return loggedInUser; //возвращает логин вошедшего пользователя
     }
 

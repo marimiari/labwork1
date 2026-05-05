@@ -1,50 +1,51 @@
 package ru.itmo.marimiari.service;
 
 import ru.itmo.marimiari.domain.Sample;
-import ru.itmo.marimiari.validation.SampleValidator;
+import ru.itmo.marimiari.repository.SampleRepository;
+
 import java.util.*;
 
 public class SampleService {
-    private final Map<Long, Sample> samples = new LinkedHashMap<>(); //сохраняет порядок добавления (ссылка не меняется из-за final)
-    private long nextId = 1; //счетчик для генерации уникальных айди
+    private final Map<Long, Sample> cache = new LinkedHashMap<>();
+    private final SampleRepository repository;
+    private long currentUserId;
 
-    public Sample add(String owner) { //создаем и добавляем в хранилище
-        Sample sample = new Sample(nextId++, owner);
-        SampleValidator.validate(sample);
-        samples.put(sample.getId(), sample);
+    public SampleService(SampleRepository repository) {
+        this.repository = repository;
+        loadAll();
+    }
+
+    public void loadAll() {
+        List<Sample> list = repository.findAll();
+        cache.clear();
+        for (Sample sample : list) cache.put(sample.getId(), sample);
+    }
+
+    public void setCurrentUserId(long userId) {
+        this.currentUserId = userId;
+    }
+
+    public Sample add() {
+        Sample sample = repository.insert(currentUserId);
+        if (sample != null) cache.put(sample.getId(), sample);
         return sample;
     }
 
-    public Optional<Sample> get(long id) { //получить по айди
-        return Optional.ofNullable(samples.get(id));
+    public Optional<Sample> get(long id) {
+        return Optional.ofNullable(cache.get(id));
     }
 
-    public Collection<Sample> getAll() { //вернуть все образцы в виде неизменной коллекции
-        return Collections.unmodifiableCollection(samples.values());
+    public Collection<Sample> getAll() {
+        return cache.values();
     }
 
-    public boolean exists(long id) { //проверить есть ли объект с указанным айди
-        return samples.containsKey(id);
+    public boolean exists(long id) {
+        return cache.containsKey(id);
     }
 
-    public void remove(long id) { //удалить по айди(если есть объект)
-        if (!exists(id)){
-            throw new IllegalArgumentException("Sample not found");
-        }
-        samples.remove(id);
-    }
-
-    public void clear() {
-        samples.clear();
-        nextId = 1;
-    }
-
-    public void addAll(Collection<Sample> collection) {
-        for (Sample s : collection) {
-            samples.put(s.getId(), s);
-            if (s.getId() >= nextId) {
-                nextId = s.getId() + 1;
-            }
-        }
+    public void remove(long id) {
+        if (!cache.containsKey(id)) throw new IllegalArgumentException("Sample not found");
+        repository.delete(id);
+        cache.remove(id);
     }
 }
