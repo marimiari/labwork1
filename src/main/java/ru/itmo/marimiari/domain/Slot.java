@@ -71,4 +71,9 @@ public final class Slot {
     public void setOwnerLogin(String ownerLogin) {
         this.ownerLogin = ownerLogin;
     }
+
+    @Override
+    public String toString() {
+        return code;
+    }
 }

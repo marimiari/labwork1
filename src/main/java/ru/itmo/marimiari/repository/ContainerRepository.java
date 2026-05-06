@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContainerRepository {
-    public List<Container> findALL() {
+    public List<Container> findAll() {
         List<Container> list = new ArrayList<>();
         String sql = "SELECT c.*, u.login as owner_login FROM containers c JOIN users u ON c.owner_id = u.id";
         try (Connection connection = DbConfig.getConnection();
@@ -21,6 +21,7 @@ public class ContainerRepository {
                 c.setName(rs.getString("name"));
                 c.setType(ContainerType.valueOf(rs.getString("type")));
                 c.setOwnerLogin(String.valueOf(rs.getLong("owner_id")));
+                c.setOwnerId(rs.getLong("owner_id"));
                 c.setCreatedAt(rs.getTimestamp("created_at").toInstant());
                 c.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
                 list.add(c);

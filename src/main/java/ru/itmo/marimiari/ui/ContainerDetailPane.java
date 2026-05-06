@@ -142,7 +142,8 @@ public class ContainerDetailPane extends VBox {
     }
 
     private void updateContainer() {
-        if (currentContainer == null) return;
+        if (currentContainer == null)
+            return;
         if (currentContainer.getOwnerId() != currentUser.getId()) {
             showAlert("Not owner");
             return;
@@ -226,9 +227,11 @@ public class ContainerDetailPane extends VBox {
         }
         ChoiceDialog<Long> sd = new ChoiceDialog<>(sampleIds.get(0), sampleIds);
         sd.setTitle("Select sample");
+        sd.setHeaderText("Select sample ID");
         Optional<Long> sid = sd.showAndWait();
         if (!sid.isPresent()) return;
         long sampleId = sid.get();
+
         List<Slot> freeSlots = slotService.getByContainer(currentContainer.getId()).stream()
                 .filter(s -> !s.isOccupied()).collect(Collectors.toList());
         if (freeSlots.isEmpty()) {
@@ -237,6 +240,7 @@ public class ContainerDetailPane extends VBox {
         }
         ChoiceDialog<Slot> sl = new ChoiceDialog<>(freeSlots.get(0), freeSlots);
         sl.setTitle("Select slot");
+        sl.setHeaderText("Choose a free slot");
         Optional<Slot> slotOpt = sl.showAndWait();
         if (!slotOpt.isPresent()) return;
         Slot slot = slotOpt.get();
@@ -255,70 +259,89 @@ public class ContainerDetailPane extends VBox {
             showAlert("No container selected");
             return;
         }
-        if (currentContainer.getOwnerId() != currentUser.getId()) {
-            showAlert("Not owner");
+        if (currentUser == null || currentContainer.getOwnerId() != currentUser.getId()) {
+            showAlert("You are not the owner of this container");
             return;
         }
-        Placement selected = placementTable.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("Select a placement to move");
+
+        List<Long> allSampleIds = sampleService.getAll().stream()
+                .map(Sample::getId)
+                .collect(Collectors.toList());
+        if (allSampleIds.isEmpty()) {
+            showAlert("No samples available");
             return;
         }
-        long sampleId = selected.getSampleId();
-        Dialog<AbstractMap.SimpleEntry<Long, String>> d = new Dialog<>();
-        d.setTitle("Move sample");
-        ComboBox<Container> contCombo = new ComboBox<>();
-        contCombo.getItems().addAll(containerService.getAll());
-        contCombo.setConverter(new javafx.util.StringConverter<Container>() {
+
+        ChoiceDialog<Long> sampleDialog = new ChoiceDialog<>(allSampleIds.get(0), allSampleIds);
+        sampleDialog.setTitle("Move sample");
+        sampleDialog.setHeaderText("Select sample ID to move");
+        Optional<Long> sampleOpt = sampleDialog.showAndWait();
+        if (!sampleOpt.isPresent()) return;
+        long sampleId = sampleOpt.get();
+
+        Dialog<AbstractMap.SimpleEntry<Long, String>> dialog = new Dialog<>();
+        dialog.setTitle("Move sample");
+        dialog.setHeaderText("Move sample #" + sampleId + " to:");
+
+        ComboBox<Container> containerCombo = new ComboBox<>();
+        containerCombo.getItems().addAll(containerService.getAll());
+        containerCombo.setConverter(new javafx.util.StringConverter<Container>() {
             @Override
             public String toString(Container c) {
                 return c == null ? "" : "#" + c.getId() + " " + c.getName();
             }
-
             @Override
-            public Container fromString(String s) {
-                return null;
-            }
+            public Container fromString(String s) { return null; }
         });
-        if (!contCombo.getItems().isEmpty()) contCombo.getSelectionModel().selectFirst();
+        if (!containerCombo.getItems().isEmpty()) containerCombo.getSelectionModel().selectFirst();
+
         ComboBox<String> slotCombo = new ComboBox<>();
         slotCombo.setDisable(true);
-        contCombo.valueProperty().addListener((obs, old, nc) -> {
-            if (nc != null) {
-                List<String> free = slotService.getByContainer(nc.getId()).stream()
-                        .filter(s -> !s.isOccupied()).map(Slot::getCode).collect(Collectors.toList());
-                slotCombo.getItems().setAll(free);
-                slotCombo.setDisable(free.isEmpty());
-                if (!free.isEmpty()) slotCombo.getSelectionModel().selectFirst();
+        containerCombo.valueProperty().addListener((obs, old, newContainer) -> {
+            if (newContainer != null) {
+                List<String> freeSlots = slotService.getByContainer(newContainer.getId()).stream()
+                        .filter(s -> !s.isOccupied())
+                        .map(Slot::getCode)
+                        .collect(Collectors.toList());
+                slotCombo.getItems().setAll(freeSlots);
+                slotCombo.setDisable(freeSlots.isEmpty());
+                if (!freeSlots.isEmpty()) slotCombo.getSelectionModel().selectFirst();
             } else {
                 slotCombo.getItems().clear();
                 slotCombo.setDisable(true);
             }
         });
+
         GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
         grid.add(new Label("New container:"), 0, 0);
-        grid.add(contCombo, 1, 0);
+        grid.add(containerCombo, 1, 0);
         grid.add(new Label("New slot:"), 0, 1);
         grid.add(slotCombo, 1, 1);
-        d.getDialogPane().setContent(grid);
-        d.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-        d.setResultConverter(btn -> {
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
             if (btn == ButtonType.OK) {
-                Container c = contCombo.getValue();
+                Container c = containerCombo.getValue();
                 String s = slotCombo.getValue();
                 if (c != null && s != null) return new AbstractMap.SimpleEntry<>(c.getId(), s);
             }
             return null;
         });
-        Optional<AbstractMap.SimpleEntry<Long, String>> res = d.showAndWait();
-        res.ifPresent(pair -> {
+
+        Optional<AbstractMap.SimpleEntry<Long, String>> result = dialog.showAndWait();
+        result.ifPresent(entry -> {
+            long newContainerId = entry.getKey();
+            String newSlotCode = entry.getValue();
             try {
-                placementService.move(sampleId, pair.getKey(), pair.getValue());
+                placementService.move(sampleId, newContainerId, newSlotCode);
                 refreshPlacements();
                 slotTable.setItems(FXCollections.observableArrayList(slotService.getByContainer(currentContainer.getId())));
                 showInfo("Sample moved");
             } catch (IllegalArgumentException e) {
-                showAlert(e.getMessage());
+                showAlert("Move failed: " + e.getMessage());
             }
         });
     }

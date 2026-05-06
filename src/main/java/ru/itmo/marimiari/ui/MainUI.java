@@ -17,10 +17,12 @@ import ru.itmo.marimiari.user.User;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.AbstractMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class MainUI extends Application { //класс javafx приложения, переопределяет метод старт
-    private static final String SAVE_FILE = "data.xml";
+public class MainUI extends Application {
     private SampleService sampleService;
     private ContainerService containerService;
     private SlotService slotService;
@@ -34,10 +36,13 @@ public class MainUI extends Application { //класс javafx приложени
     private Button addContainerButton, addSlotsButton, addSampleButton, saveButton;
     private Button loginButton, registerButton, logoutButton;
 
+    private ListView<Sample> sampleListView;
+    private Button moveSampleButton;
+    private Button removeSampleButton;
+
     @Override
     public void start(Stage primaryStage) {
         try (Connection conn = DbConfig.getConnection()) {
-            // ok
         } catch (SQLException e) {
             Alert alert = new Alert(Alert.AlertType.ERROR, "Cannot connect to database.\nCheck PostgreSQL and db.properties", ButtonType.OK);
             alert.showAndWait();
@@ -60,7 +65,6 @@ public class MainUI extends Application { //класс javafx приложени
         SlotRepository slotRepo = new SlotRepository();
         PlacementRepository placementRepo = new PlacementRepository();
 
-        // 3. Сервисы
         sampleService = new SampleService(sampleRepo);
         containerService = new ContainerService(containerRepo);
         slotService = new SlotService(slotRepo, containerService);
@@ -82,6 +86,16 @@ public class MainUI extends Application { //класс javafx приложени
             }
         });
 
+        sampleListView = new ListView<>();
+        sampleListView.setCellFactory(lv -> new ListCell<Sample>() {
+            @Override
+            protected void updateItem(Sample s, boolean empty) {
+                super.updateItem(s, empty);
+                setText(empty || s == null ? null : "Sample #" + s.getId());
+            }
+        });
+        refreshSampleList();
+
         detailPane = new ContainerDetailPane(containerService, slotService, placementService, sampleService, currentUser);
         progressBar = new ProgressBar();
         progressBar.setVisible(false);
@@ -100,6 +114,22 @@ public class MainUI extends Application { //класс javafx приложени
 
         saveButton = new Button("Save");
         saveButton.setOnAction(e -> showInfo("Data is automatically saved to database"));
+
+        moveSampleButton = new Button("Move sample");
+        moveSampleButton.setOnAction(e -> moveSelectedSample());
+        moveSampleButton.setDisable(true);
+
+        removeSampleButton = new Button("Remove sample");
+        removeSampleButton.setOnAction(e -> removeSelectedSample());
+        removeSampleButton.setDisable(true);
+
+        sampleListView.getSelectionModel().selectedItemProperty().addListener(
+                (obs, old, selected) -> {
+                    boolean hasSelection = selected != null;
+                    moveSampleButton.setDisable(!hasSelection);
+                    removeSampleButton.setDisable(!hasSelection);
+                }
+        );
 
         loginButton = new Button("Login");
         loginButton.setDisable(true);
@@ -136,6 +166,105 @@ public class MainUI extends Application { //класс javafx приложени
         primaryStage.show();
     }
 
+    private void moveSelectedSample() {
+        Sample selected = sampleListView.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert("No sample selected");
+            return;
+        }
+        long sampleId = selected.getId();
+
+        Dialog<AbstractMap.SimpleEntry<Long, String>> dialog = new Dialog<>();
+        dialog.setTitle("Move sample");
+        dialog.setHeaderText("Move sample #" + sampleId);
+
+        ComboBox<Container> containerCombo = new ComboBox<>();
+        containerCombo.getItems().addAll(containerService.getAll());
+        containerCombo.setConverter(new javafx.util.StringConverter<Container>() {
+            @Override
+            public String toString(Container c) {
+                return c == null ? "" : "#" + c.getId() + " " + c.getName();
+            }
+
+            @Override
+            public Container fromString(String s) {
+                return null;
+            }
+        });
+        if (!containerCombo.getItems().isEmpty()) containerCombo.getSelectionModel().selectFirst();
+
+        ComboBox<String> slotCombo = new ComboBox<>();
+        slotCombo.setDisable(true);
+        containerCombo.valueProperty().addListener((obs, old, nc) -> {
+            if (nc != null) {
+                List<String> free = slotService.getByContainer(nc.getId()).stream()
+                        .filter(s -> !s.isOccupied()).map(Slot::getCode).collect(Collectors.toList());
+                slotCombo.getItems().setAll(free);
+                slotCombo.setDisable(free.isEmpty());
+                if (!free.isEmpty()) slotCombo.getSelectionModel().selectFirst();
+            } else {
+                slotCombo.getItems().clear();
+                slotCombo.setDisable(true);
+            }
+        });
+
+        GridPane grid = new GridPane();
+        grid.add(new Label("Target container:"), 0, 0);
+        grid.add(containerCombo, 1, 0);
+        grid.add(new Label("Target slot:"), 0, 1);
+        grid.add(slotCombo, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == ButtonType.OK) {
+                Container c = containerCombo.getValue();
+                String s = slotCombo.getValue();
+                if (c != null && s != null) return new AbstractMap.SimpleEntry<>(c.getId(), s);
+            }
+            return null;
+        });
+
+        Optional<AbstractMap.SimpleEntry<Long, String>> res = dialog.showAndWait();
+        res.ifPresent(pair -> {
+            try {
+                placementService.move(sampleId, pair.getKey(), pair.getValue());
+                refreshSampleList();
+                refreshContainerList();
+                showInfo("Sample moved");
+            } catch (IllegalArgumentException e) {
+                showAlert("Move failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private void removeSelectedSample() {
+        Sample selected = sampleListView.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert("No sample selected");
+            return;
+        }
+        long sampleId = selected.getId();
+        try {
+            sampleService.remove(sampleId);
+            refreshSampleList();
+            refreshContainerList();
+            showInfo("Sample removed");
+        } catch (IllegalArgumentException e) {
+            showAlert("Remove failed: " + e.getMessage());
+        }
+    }
+
+    private void showAddSampleDialog() {
+        if (currentUser == null) {
+            showAlert("Please login first");
+            return;
+        }
+        Sample newSample = sampleService.add();
+        refreshSampleList();
+        showInfo("Sample #" + newSample.getId() + " added");
+    }
+
     private void refreshContainerList() {
         List<Container> containers = List.copyOf(containerService.getAll());
         containerListView.setItems(FXCollections.observableArrayList(containers));
@@ -145,6 +274,13 @@ public class MainUI extends Application { //класс javafx приложени
         } else {
             detailPane.setContainer(null);
         }
+        refreshSampleList();
+        showInfo("Data reloaded from database");
+    }
+
+    private void refreshSampleList() {
+        List<Sample> samples = List.copyOf(sampleService.getAll());
+        sampleListView.setItems(FXCollections.observableArrayList(samples));
     }
 
     private void showAddContainerDialog() {
@@ -248,15 +384,6 @@ public class MainUI extends Application { //класс javafx приложени
             }
         });
         d.showAndWait();
-    }
-
-    private void showAddSampleDialog() {
-        if (currentUser == null) {
-            showAlert("Please login first");
-            return;
-        }
-        sampleService.add();
-        showInfo("Sample added. Total: " + sampleService.getAll().size());
     }
 
     private void logout() {

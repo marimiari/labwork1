@@ -18,7 +18,7 @@ public class ContainerService {
     }
 
     private void loadAll() {
-        List<Container> list = repository.findALL();
+        List<Container> list = repository.findAll();
         cache.clear();
         for (Container container : list) cache.put(container.getId(), container);
     }
