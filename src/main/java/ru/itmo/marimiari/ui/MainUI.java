@@ -33,12 +33,7 @@ public class MainUI extends Application {
     private ContainerDetailPane detailPane;
     private ProgressBar progressBar;
 
-    private Button addContainerButton, addSlotsButton, addSampleButton, saveButton;
-    private Button loginButton, registerButton, logoutButton;
-
-    private ListView<Sample> sampleListView;
-    private Button moveSampleButton;
-    private Button removeSampleButton;
+    private Button addContainerButton, addSlotsButton, saveButton, loginButton, registerButton, logoutButton;
 
     @Override
     public void start(Stage primaryStage) {
@@ -52,7 +47,6 @@ public class MainUI extends Application {
 
         UserRepository userRepo = new UserRepository();
         UserService userService = new UserService(userRepo);
-
         LoginDialog loginDialog = new LoginDialog(userService);
         if (!loginDialog.showAndWait()) {
             Platform.exit();
@@ -82,19 +76,9 @@ public class MainUI extends Application {
             protected void updateItem(Container c, boolean empty) {
                 super.updateItem(c, empty);
                 if (empty || c == null) setText(null);
-                else setText("#" + c.getId() + " " + c.getName() + " (" + c.getType() + ") — " + c.getOwnerLogin());
+                else setText("#" + c.getId() + " " + c.getName() + " (" + c.getType() + ") – " + c.getOwnerLogin());
             }
         });
-
-        sampleListView = new ListView<>();
-        sampleListView.setCellFactory(lv -> new ListCell<Sample>() {
-            @Override
-            protected void updateItem(Sample s, boolean empty) {
-                super.updateItem(s, empty);
-                setText(empty || s == null ? null : "Sample #" + s.getId());
-            }
-        });
-        refreshSampleList();
 
         detailPane = new ContainerDetailPane(containerService, slotService, placementService, sampleService, currentUser);
         progressBar = new ProgressBar();
@@ -107,29 +91,10 @@ public class MainUI extends Application {
         addContainerButton.setOnAction(e -> showAddContainerDialog());
 
         addSlotsButton = new Button("Add slots");
-        addSlotsButton.setOnAction(e -> showAddSlotsDialog());
-
-        addSampleButton = new Button("Add sample");
-        addSampleButton.setOnAction(e -> showAddSampleDialog());
+        addSlotsButton.setOnAction(e -> detailPane.showAddSlotsDialog());
 
         saveButton = new Button("Save");
         saveButton.setOnAction(e -> showInfo("Data is automatically saved to database"));
-
-        moveSampleButton = new Button("Move sample");
-        moveSampleButton.setOnAction(e -> moveSelectedSample());
-        moveSampleButton.setDisable(true);
-
-        removeSampleButton = new Button("Remove sample");
-        removeSampleButton.setOnAction(e -> removeSelectedSample());
-        removeSampleButton.setDisable(true);
-
-        sampleListView.getSelectionModel().selectedItemProperty().addListener(
-                (obs, old, selected) -> {
-                    boolean hasSelection = selected != null;
-                    moveSampleButton.setDisable(!hasSelection);
-                    removeSampleButton.setDisable(!hasSelection);
-                }
-        );
 
         loginButton = new Button("Login");
         loginButton.setDisable(true);
@@ -144,7 +109,6 @@ public class MainUI extends Application {
                 refreshButton,
                 addContainerButton,
                 addSlotsButton,
-                addSampleButton,
                 saveButton,
                 new Separator(),
                 loginButton, registerButton, logoutButton,
@@ -166,105 +130,6 @@ public class MainUI extends Application {
         primaryStage.show();
     }
 
-    private void moveSelectedSample() {
-        Sample selected = sampleListView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No sample selected");
-            return;
-        }
-        long sampleId = selected.getId();
-
-        Dialog<AbstractMap.SimpleEntry<Long, String>> dialog = new Dialog<>();
-        dialog.setTitle("Move sample");
-        dialog.setHeaderText("Move sample #" + sampleId);
-
-        ComboBox<Container> containerCombo = new ComboBox<>();
-        containerCombo.getItems().addAll(containerService.getAll());
-        containerCombo.setConverter(new javafx.util.StringConverter<Container>() {
-            @Override
-            public String toString(Container c) {
-                return c == null ? "" : "#" + c.getId() + " " + c.getName();
-            }
-
-            @Override
-            public Container fromString(String s) {
-                return null;
-            }
-        });
-        if (!containerCombo.getItems().isEmpty()) containerCombo.getSelectionModel().selectFirst();
-
-        ComboBox<String> slotCombo = new ComboBox<>();
-        slotCombo.setDisable(true);
-        containerCombo.valueProperty().addListener((obs, old, nc) -> {
-            if (nc != null) {
-                List<String> free = slotService.getByContainer(nc.getId()).stream()
-                        .filter(s -> !s.isOccupied()).map(Slot::getCode).collect(Collectors.toList());
-                slotCombo.getItems().setAll(free);
-                slotCombo.setDisable(free.isEmpty());
-                if (!free.isEmpty()) slotCombo.getSelectionModel().selectFirst();
-            } else {
-                slotCombo.getItems().clear();
-                slotCombo.setDisable(true);
-            }
-        });
-
-        GridPane grid = new GridPane();
-        grid.add(new Label("Target container:"), 0, 0);
-        grid.add(containerCombo, 1, 0);
-        grid.add(new Label("Target slot:"), 0, 1);
-        grid.add(slotCombo, 1, 1);
-        dialog.getDialogPane().setContent(grid);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-        dialog.setResultConverter(btn -> {
-            if (btn == ButtonType.OK) {
-                Container c = containerCombo.getValue();
-                String s = slotCombo.getValue();
-                if (c != null && s != null) return new AbstractMap.SimpleEntry<>(c.getId(), s);
-            }
-            return null;
-        });
-
-        Optional<AbstractMap.SimpleEntry<Long, String>> res = dialog.showAndWait();
-        res.ifPresent(pair -> {
-            try {
-                placementService.move(sampleId, pair.getKey(), pair.getValue());
-                refreshSampleList();
-                refreshContainerList();
-                showInfo("Sample moved");
-            } catch (IllegalArgumentException e) {
-                showAlert("Move failed: " + e.getMessage());
-            }
-        });
-    }
-
-    private void removeSelectedSample() {
-        Sample selected = sampleListView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No sample selected");
-            return;
-        }
-        long sampleId = selected.getId();
-        try {
-            sampleService.remove(sampleId);
-            refreshSampleList();
-            refreshContainerList();
-            showInfo("Sample removed");
-        } catch (IllegalArgumentException e) {
-            showAlert("Remove failed: " + e.getMessage());
-        }
-    }
-
-    private void showAddSampleDialog() {
-        if (currentUser == null) {
-            showAlert("Please login first");
-            return;
-        }
-        Sample newSample = sampleService.add();
-        refreshSampleList();
-        showInfo("Sample #" + newSample.getId() + " added");
-    }
-
     private void refreshContainerList() {
         List<Container> containers = List.copyOf(containerService.getAll());
         containerListView.setItems(FXCollections.observableArrayList(containers));
@@ -274,13 +139,6 @@ public class MainUI extends Application {
         } else {
             detailPane.setContainer(null);
         }
-        refreshSampleList();
-        showInfo("Data reloaded from database");
-    }
-
-    private void refreshSampleList() {
-        List<Sample> samples = List.copyOf(sampleService.getAll());
-        sampleListView.setItems(FXCollections.observableArrayList(samples));
     }
 
     private void showAddContainerDialog() {
@@ -327,57 +185,6 @@ public class MainUI extends Application {
                 containerListView.getSelectionModel().select(newContainer);
                 d.close();
                 showInfo("Container added");
-            } catch (IllegalArgumentException e) {
-                showAlert(e.getMessage());
-                ev.consume();
-            }
-        });
-        d.showAndWait();
-    }
-
-    private void showAddSlotsDialog() {
-        if (currentUser == null) {
-            showAlert("Please login first");
-            return;
-        }
-        Container sel = containerListView.getSelectionModel().getSelectedItem();
-        if (sel == null) {
-            showAlert("Select container first");
-            return;
-        }
-        if (sel.getOwnerId() != currentUser.getId()) {
-            showAlert("Not owner");
-            return;
-        }
-        Dialog<int[]> d = new Dialog<>();
-        d.setTitle("Add slots");
-        TextField rowsField = new TextField(), colsField = new TextField();
-        GridPane g = new GridPane();
-        g.add(new Label("Rows (1-26):"), 0, 0);
-        g.add(rowsField, 1, 0);
-        g.add(new Label("Columns (1+):"), 0, 1);
-        g.add(colsField, 1, 1);
-        d.getDialogPane().setContent(g);
-        ButtonType ok = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
-        d.getDialogPane().getButtonTypes().addAll(ok, ButtonType.CANCEL);
-        Button btn = (Button) d.getDialogPane().lookupButton(ok);
-        btn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
-            try {
-                int rows = Integer.parseInt(rowsField.getText().trim());
-                int cols = Integer.parseInt(colsField.getText().trim());
-                if (rows < 1 || rows > 26 || cols < 1) {
-                    showAlert("Rows 1-26, Cols >=1");
-                    ev.consume();
-                    return;
-                }
-                slotService.createSlots(sel.getId(), rows, cols);
-                refreshContainerList(); // обновить кэш
-                detailPane.setContainer(sel);
-                d.close();
-                showInfo("Slots created");
-            } catch (NumberFormatException e) {
-                showAlert("Invalid number");
-                ev.consume();
             } catch (IllegalArgumentException e) {
                 showAlert(e.getMessage());
                 ev.consume();

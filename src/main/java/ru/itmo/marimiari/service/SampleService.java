@@ -48,4 +48,8 @@ public class SampleService {
         repository.delete(id);
         cache.remove(id);
     }
+
+    public Map<Long, Sample> getCache(){
+        return cache;
+    }
 }

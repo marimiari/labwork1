@@ -20,7 +20,7 @@ public class LoginDialog {
 
     public boolean showAndWait(){
         Stage stage = new Stage();
-        stage.setTitle("Welcome");
+        stage.setTitle("Container DataBase");
 
         GridPane grid = new GridPane();
         grid.setHgap(10);

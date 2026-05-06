@@ -20,8 +20,8 @@ public class ContainerRepository {
                 c.setId(rs.getLong("id"));
                 c.setName(rs.getString("name"));
                 c.setType(ContainerType.valueOf(rs.getString("type")));
-                c.setOwnerLogin(String.valueOf(rs.getLong("owner_id")));
                 c.setOwnerId(rs.getLong("owner_id"));
+                c.setOwnerLogin(String.valueOf(rs.getLong("owner_id")));
                 c.setCreatedAt(rs.getTimestamp("created_at").toInstant());
                 c.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
                 list.add(c);
